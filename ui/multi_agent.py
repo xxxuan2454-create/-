@@ -1,10 +1,11 @@
-"""多智能体分析页面 - TradingAgents 架构"""
+"""多智能体分析页面 - CrewAI 架构"""
 
 import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
 
-from strategies.trading_agents import analyze_single_stock, _get_technical_data, _get_fundamental_data
+from strategies.crew_agents import analyze_single_stock
+from strategies.trading_agents import _get_technical_data, _get_fundamental_data
 from data.fetcher import fetch_stock_history
 from config import STOCK_POOL
 import math
@@ -26,8 +27,8 @@ def show():
     st.markdown("# 🤖 多智能体股票分析")
 
     st.markdown("""
-    基于 TradingAgents 架构，模拟专业投资团队的分析流程：
-    **技术分析师** → **基本面分析师** → **情绪分析师** → **多空辩论** → **综合建议**
+    基于 **CrewAI** 多智能体框架，5个独立 AI Agent 各司其职：
+    **技术分析师** → **基本面分析师** → **情绪分析师** → **辩论主持人** → **首席策略官**
     """)
 
     # ── 选股 ──
@@ -156,12 +157,12 @@ def show():
             return
 
         with st.spinner("""
-        🧠 多智能体分析中...
-        - 技术分析师正在分析MACD/RSI/K线形态
-        - 基本面分析师正在评估PE/PB/ROE
-        - 情绪分析师正在解读市场情绪
-        - 研究员正在进行多空辩论
-        - 正在综合研判...
+        🧠 CrewAI 多智能体协作中...
+        - 技术分析师 Agent 正在分析MACD/RSI/K线形态
+        - 基本面分析师 Agent 正在评估PE/PB/ROE
+        - 情绪分析师 Agent 正在解读市场情绪
+        - 辩论主持人 Agent 正在组织多空辩论
+        - 首席策略官 Agent 正在最终决策...
         """):
             result = analyze_single_stock(selected_name, selected_code)
 
