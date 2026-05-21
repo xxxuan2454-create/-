@@ -2,13 +2,21 @@
 
 import pandas as pd
 import numpy as np
-import akquant as aq
+
+try:
+    import akquant as aq
+    _HAS_AKQUANT = True
+except ImportError:
+    aq = None
+    _HAS_AKQUANT = False
 
 from data.fetcher import fetch_stock_history
 
 
 def compute_all_indicators(code: str, period: str = "6mo") -> dict:
     """Compute a comprehensive set of technical indicators for a stock"""
+    if not _HAS_AKQUANT:
+        return _empty_result()
     df = fetch_stock_history(code, period=period)
     if df.empty or len(df) < 30:
         return _empty_result()
@@ -78,6 +86,8 @@ def compute_all_indicators(code: str, period: str = "6mo") -> dict:
 
 def compute_weekly_indicators(code: str) -> dict:
     """Compute weekly-scale indicators"""
+    if not _HAS_AKQUANT:
+        return {}
     df = fetch_stock_history(code, period="1y")
     if df.empty or len(df) < 50:
         return {}

@@ -55,8 +55,15 @@ def _ensure_stock_pool():
 
 
 def main():
-    init_db()
-    _ensure_stock_pool()
+    try:
+        init_db()
+    except Exception as e:
+        st.error(f"数据库初始化失败: {e}")
+
+    try:
+        _ensure_stock_pool()
+    except Exception as e:
+        st.warning(f"股票池同步跳过: {e}")
 
     # ── 认证检查 ──
     if "user_id" not in st.session_state:
