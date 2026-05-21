@@ -4,7 +4,6 @@ import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
 
-from strategies.crew_agents import analyze_single_stock
 from strategies.trading_agents import _get_technical_data, _get_fundamental_data
 from data.fetcher import fetch_stock_history
 from config import STOCK_POOL
@@ -164,7 +163,12 @@ def show():
         - 辩论主持人 Agent 正在组织多空辩论
         - 首席策略官 Agent 正在最终决策...
         """):
-            result = analyze_single_stock(selected_name, selected_code)
+            from strategies.crew_agents import analyze_single_stock
+            try:
+                result = analyze_single_stock(selected_name, selected_code)
+            except ImportError as e:
+                st.error(f"CrewAI 加载失败（Streamlit Cloud 内存限制）: {e}")
+                return
 
         st.session_state["ma_result"] = result
 
