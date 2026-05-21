@@ -30,8 +30,27 @@ from ui.multi_agent import show as multi_agent
 from ui.backtest import show as backtest
 
 
+def _ensure_stock_pool():
+    """确保全A股股票池已同步到数据库，并更新 config.STOCK_POOL"""
+    import config
+    from data.stock_list import sync_full_stock_list, get_stock_count
+
+    try:
+        count = get_stock_count()
+    except Exception:
+        count = 0
+
+    if count < 1000:
+        synced = sync_full_stock_list()
+        if synced > 0:
+            new_pool = config.get_full_stock_pool()
+            config.STOCK_POOL.clear()
+            config.STOCK_POOL.update(new_pool)
+
+
 def main():
     init_db()
+    _ensure_stock_pool()
 
     # ── 认证检查 ──
     if "user_id" not in st.session_state:
