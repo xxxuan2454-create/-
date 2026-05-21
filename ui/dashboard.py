@@ -3,6 +3,7 @@
 import streamlit as st
 import pandas as pd
 
+from config import STOCK_POOL
 from data.fetcher import fetch_index_data
 from db.store import get_accuracy_stats, get_stock_picks, get_predictions
 from db.models import init_db
@@ -22,6 +23,7 @@ def show():
     init_db()
 
     user_id = st.session_state.get("user_id", 1)
+    total_stocks = len(STOCK_POOL)
 
     # ── 大盘指数概览 ──
     st.markdown("## 大盘指数")
