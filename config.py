@@ -112,18 +112,20 @@ QUALITY_MIN_LENGTH = 100
 QUALITY_MAX_RETRIES = 3
 
 
-def get_full_stock_pool() -> dict[str, str]:
+def _load_stock_pool_json() -> dict[str, str]:
     """从静态JSON加载全A股股票池 (name -> yf_code)，5300+只"""
     import json
     pool_file = PROJECT_DIR / "data" / "stock_pool.json"
     if pool_file.exists():
         try:
-            with open(pool_file, "r") as f:
+            with open(pool_file, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
             pass
-    return dict(STOCK_POOL)
+    return {}
 
 
-# 动态股票池 (优先从静态JSON加载全量，fallback到内置池)
-STOCK_POOL = get_full_stock_pool()
+# 优先从静态JSON加载全量，fallback到内置硬编码池
+_json_pool = _load_stock_pool_json()
+if _json_pool:
+    STOCK_POOL = _json_pool
