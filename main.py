@@ -31,7 +31,9 @@ from ui.backtest import show as backtest
 
 
 def _ensure_stock_pool():
-    """确保全A股股票池已同步到数据库，并更新 config.STOCK_POOL"""
+    """确保全A股股票池已同步到数据库，并更新 config.STOCK_POOL。
+    同步失败时静默跳过，使用内置140只股票池。
+    """
     import config
     from data.stock_list import sync_full_stock_list, get_stock_count
 
@@ -41,7 +43,11 @@ def _ensure_stock_pool():
         count = 0
 
     if count < 1000:
-        synced = sync_full_stock_list()
+        try:
+            synced = sync_full_stock_list()
+        except Exception as e:
+            print(f"全A股同步失败（将使用内置池）: {e}")
+            return
         if synced > 0:
             new_pool = config.get_full_stock_pool()
             config.STOCK_POOL.clear()
