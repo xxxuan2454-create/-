@@ -197,7 +197,10 @@ def show():
 
 def run_backtest(df: pd.DataFrame, strategy: str, params: dict, capital: float = 100_000) -> dict:
     """轻量级向量化回测引擎"""
-    import akquant as aq
+    try:
+        import akquant as aq
+    except ImportError:
+        return {"error": "akquant 不可用（Streamlit Cloud 不支持 TA-Lib C 依赖），请本地运行回测"}
 
     close = df["close"].values
     # 统一转为字符串日期，避免 session_state 序列化导致 1970 年问题

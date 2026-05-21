@@ -6,7 +6,7 @@ import numpy as np
 try:
     import akquant as aq
     _HAS_AKQUANT = True
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     aq = None
     _HAS_AKQUANT = False
 

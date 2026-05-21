@@ -133,13 +133,16 @@ def show():
             close=hist_df["close"],
             name=selected_name, showlegend=False,
         ))
-        import akquant as aq
-        close = hist_df["close"]
-        ma15 = aq.talib.SMA(close, timeperiod=15, as_series=True)
-        ma30 = aq.talib.SMA(close, timeperiod=30, as_series=True)
-        for ma_line, c, n in [(ma15, "#ff9800", "MA15(日)"), (ma30, "#42a5f5", "MA30(日)")]:
-            fig.add_trace(go.Scatter(x=hist_df.index, y=ma_line, mode="lines",
-                                     name=n, line=dict(color=c, width=1)))
+        try:
+            import akquant as aq
+            close = hist_df["close"]
+            ma15 = aq.talib.SMA(close, timeperiod=15, as_series=True)
+            ma30 = aq.talib.SMA(close, timeperiod=30, as_series=True)
+            for ma_line, c, n in [(ma15, "#ff9800", "MA15(日)"), (ma30, "#42a5f5", "MA30(日)")]:
+                fig.add_trace(go.Scatter(x=hist_df.index, y=ma_line, mode="lines",
+                                         name=n, line=dict(color=c, width=1)))
+        except ImportError:
+            pass
         fig.update_layout(height=350, xaxis_rangeslider_visible=False)
         st.plotly_chart(fig, use_container_width=True)
 

@@ -4,12 +4,12 @@ import pandas as pd
 from openai import OpenAI
 from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, AI_MODEL
 from data.fetcher import fetch_stock_history, fetch_stock_info, fetch_news
-from data.technical import compute_all_indicators, compute_weekly_indicators, indicator_summary_text
 from quality_hook import quality_check_and_retry
 
 
 def _get_technical_data(code: str) -> dict:
     """获取技术分析所需数据 (powered by akquant TA-Lib)"""
+    from data.technical import compute_all_indicators, compute_weekly_indicators, indicator_summary_text
     inds = compute_all_indicators(code, period="6mo")
     weekly = compute_weekly_indicators(code)
 
