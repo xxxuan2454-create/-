@@ -113,21 +113,17 @@ QUALITY_MAX_RETRIES = 3
 
 
 def get_full_stock_pool() -> dict[str, str]:
-    """从SQLite加载全A股股票池 (name -> yf_code)"""
-    import sqlite3
-    if not DB_PATH.exists():
-        return dict(STOCK_POOL)
-    try:
-        conn = sqlite3.connect(str(DB_PATH))
-        cur = conn.execute("SELECT code, name FROM all_stocks ORDER BY code")
-        rows = cur.fetchall()
-        conn.close()
-        if rows:
-            return {name: code for code, name in rows}
-    except Exception:
-        pass
+    """从静态JSON加载全A股股票池 (name -> yf_code)，5300+只"""
+    import json
+    pool_file = PROJECT_DIR / "data" / "stock_pool.json"
+    if pool_file.exists():
+        try:
+            with open(pool_file, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
     return dict(STOCK_POOL)
 
 
-# 动态股票池 (优先从DB加载全量，fallback到内置池)
+# 动态股票池 (优先从静态JSON加载全量，fallback到内置池)
 STOCK_POOL = get_full_stock_pool()

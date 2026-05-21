@@ -30,13 +30,9 @@ from ui.multi_agent import show as multi_agent
 from ui.backtest import show as backtest
 
 
-def _ensure_stock_pool():
-    """确保全A股股票池已同步到数据库，并更新 config.STOCK_POOL。
-    同步失败时静默跳过，使用内置140只股票池。
-    """
-    import config
+def _init_search_db():
+    """首次启动时将静态CSV导入SQLite，供搜索功能使用"""
     from data.stock_list import sync_full_stock_list, get_stock_count
-
     try:
         count = get_stock_count()
     except Exception:
@@ -44,26 +40,17 @@ def _ensure_stock_pool():
 
     if count < 1000:
         try:
-            synced = sync_full_stock_list()
+            sync_full_stock_list()
         except Exception as e:
-            print(f"全A股同步失败（将使用内置池）: {e}")
-            return
-        if synced > 0:
-            new_pool = config.get_full_stock_pool()
-            config.STOCK_POOL.clear()
-            config.STOCK_POOL.update(new_pool)
+            print(f"搜索索引同步失败: {e}")
 
 
 def main():
     try:
         init_db()
+        _init_search_db()
     except Exception as e:
         st.error(f"数据库初始化失败: {e}")
-
-    try:
-        _ensure_stock_pool()
-    except Exception as e:
-        st.warning(f"股票池同步跳过: {e}")
 
     # ── 认证检查 ──
     if "user_id" not in st.session_state:

@@ -4,16 +4,13 @@ from db.models import get_connection
 
 
 def sync_full_stock_list() -> int:
-    """从adata同步全A股列表到SQLite，返回股票总数"""
-    import adata
+    """从静态CSV同步全A股列表到SQLite，返回股票总数"""
+    import csv
+    from pathlib import Path
 
-    try:
-        df = adata.stock.info.all_code()
-    except Exception as e:
-        print(f"adata同步失败: {e}")
-        return 0
-
-    if df.empty:
+    csv_path = Path(__file__).resolve().parent / "all_stocks.csv"
+    if not csv_path.exists():
+        print(f"股票列表文件不存在: {csv_path}")
         return 0
 
     conn = get_connection()
@@ -28,41 +25,26 @@ def sync_full_stock_list() -> int:
     """)
 
     count = 0
-    for _, row in df.iterrows():
-        try:
-            raw_code = str(row.get("stock_code", "")).strip()
-            name = str(row.get("short_name", "")).strip()
-            exchange_raw = str(row.get("exchange", "")).strip()
-
-            if not raw_code or not name or len(raw_code) < 6:
+    with open(csv_path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            code = row.get("code", "").strip()
+            name = row.get("name", "").strip()
+            exchange = row.get("exchange", "").strip()
+            if not code or not name:
                 continue
-            # Normalize to 6-digit code
-            raw_code = raw_code.zfill(6)
-
-            # Map exchange to yfinance suffix
-            if raw_code.startswith(("6", "9")):
-                yf_code = f"{raw_code}.SS"
-                exchange = "SSE"
-            elif raw_code.startswith(("0", "2", "3", "8")):
-                yf_code = f"{raw_code}.SZ"
-                exchange = "SZSE"
-            elif raw_code.startswith(("4", "8")):
-                yf_code = f"{raw_code}.BJ"
-                exchange = "BSE"
-            else:
+            try:
+                cursor.execute(
+                    "INSERT OR REPLACE INTO all_stocks (code, name, exchange) VALUES (?, ?, ?)",
+                    (code, name, exchange),
+                )
+                count += 1
+            except Exception:
                 continue
-
-            cursor.execute(
-                "INSERT OR REPLACE INTO all_stocks (code, name, exchange) VALUES (?, ?, ?)",
-                (yf_code, name, exchange),
-            )
-            count += 1
-        except Exception:
-            continue
 
     conn.commit()
     conn.close()
-    print(f"同步完成: {count} 只A股")
+    print(f"同步完成: {count} 只A股（来自静态CSV）")
     return count
 
 
