@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Data cache (recreated on each deploy)
+data_cache/
+
+# Local DB (Streamlit Cloud creates fresh)
+stock_predictor.db
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
