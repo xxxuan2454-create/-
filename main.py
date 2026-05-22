@@ -27,7 +27,6 @@ from ui.divination import show as divination
 from ui.history import show as history
 from ui.multi_agent import show as multi_agent
 from ui.backtest import show as backtest
-from ui.philosophers import show as philosophers
 
 
 def _init_search_db():
@@ -80,7 +79,6 @@ def main():
                 "🔮 六爻占卜",
                 "⚡ 策略回测",
                 "📋 历史记录",
-                "🏛 哲学家网络",
             ],
             index=0,
         )
@@ -100,8 +98,6 @@ def main():
             st.caption("均线/RSI/布林带 交易策略回测")
         elif page == "📋 历史记录":
             st.caption("预测记录、准确率统计、手动回测")
-        elif page == "🏛 哲学家网络":
-            st.caption("40位西方哲学家的交互式全景网络图")
 
         st.markdown("---")
         st.markdown("### ⚙️ 集成来源")
@@ -130,8 +126,6 @@ def main():
         backtest()
     elif page == "📋 历史记录":
         history()
-    elif page == "🏛 哲学家网络":
-        philosophers()
 
 
 if __name__ == "__main__":
