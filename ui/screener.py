@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from strategies.sequoia_x import screen_stock_pool, run_all_sequoia_strategies
+from strategies.momentum_x import screen_stock_pool as screen_momentum, run_all_momentum_strategies
 from strategies.qstock_scorer import screen_by_comprehensive, comprehensive_score
 from data.fetcher import fetch_stock_history
 from db.store import save_stock_picks, get_stock_picks, has_today_screening, get_latest_screening_time
@@ -17,10 +18,86 @@ def show():
 
     # ── 策略选择 ──
     st.markdown("### 选择策略")
-    tab1, tab2, tab3 = st.tabs(["Sequoia-X 技术面", "qstock 多因子评分", "综合推荐"])
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "Momentum-X 动量趋势", "Sequoia-X 技术面", "qstock 多因子评分", "综合推荐",
+    ])
 
-    # ── Tab 1: Sequoia-X ──
+    # ── Tab 1: Momentum-X 动量趋势 ──
     with tab1:
+        st.markdown("基于 6 大动量趋势策略，捕捉**正在上涨且仍有空间**的股票")
+
+        # ── 缓存结果 ──
+        if has_today_screening("momentum_x"):
+            cached_time = get_latest_screening_time("momentum_x") or ""
+            st.success(f"✅ 今日筛选已完成 ({cached_time[:16]})，直接查看结果：")
+            cached_picks = get_stock_picks("momentum_x", limit=100)
+            if cached_picks:
+                df_cached = pd.DataFrame(cached_picks)
+                available_cols = [c for c in ["stock_name", "stock_code", "score"] if c in df_cached.columns]
+                st.dataframe(
+                    df_cached[available_cols],
+                    use_container_width=True, hide_index=True,
+                    column_config={
+                        "stock_name": "股票名称", "stock_code": "股票代码",
+                        "score": "今日涨幅%",
+                    },
+                )
+            st.divider()
+            st.caption("如需刷新结果，选择策略后点击下方按钮（耗时约5-8分钟）")
+
+        m_strategies = st.multiselect(
+            "选择策略 (可多选)",
+            options=["BullishAlignment", "VolumeBreakout", "TrendPullback",
+                     "MACDZeroCross", "BBSqueezeBreakout", "RSIStrength"],
+            default=["BullishAlignment", "VolumeBreakout", "TrendPullback"],
+            format_func=lambda x: {
+                "BullishAlignment": "均线多头排列",
+                "VolumeBreakout": "放量突破平台",
+                "TrendPullback": "趋势回调支撑",
+                "MACDZeroCross": "MACD零轴金叉",
+                "BBSqueezeBreakout": "布林收口突破",
+                "RSIStrength": "RSI强势动量",
+            }.get(x, x),
+            key="m_select",
+        )
+
+        if st.button("🚀 运行动量趋势筛选", type="primary", key="run_momentum"):
+            progress_bar = st.progress(0)
+            progress_text = st.empty()
+
+            def update_progress(done, total):
+                progress_bar.progress(min(done / total, 1.0))
+                progress_text.text(f"筛选进度... {done}/{total}")
+
+            with st.spinner(f"正在并行筛选 {len(STOCK_POOL)} 只股票 (20线程)..."):
+                df = screen_momentum(m_strategies, progress_callback=update_progress)
+
+            progress_bar.empty()
+            progress_text.empty()
+
+            if df.empty:
+                st.warning("未筛选出符合条件的股票。")
+            else:
+                st.success(f"筛选出 {len(df)} 条结果")
+                st.dataframe(
+                    df.drop(columns=["strategy"], errors="ignore"),
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "name": "股票名称",
+                        "code": "股票代码",
+                        "score": "今日涨幅%",
+                        "price": "当前价格",
+                        "volume": "成交量",
+                    },
+                )
+                picks = df.to_dict(orient="records")
+                save_stock_picks("momentum_x", picks)
+
+                show_top_kline(df)
+
+    # ── Tab 2: Sequoia-X ──
+    with tab2:
         st.markdown("基于 Sequoia-X 的7大技术面筛选策略")
 
         # ── 缓存结果 ──
@@ -92,8 +169,8 @@ def show():
 
                 show_top_kline(df)
 
-    # ── Tab 2: qstock 多因子 ──
-    with tab2:
+    # ── Tab 3: qstock 多因子 ──
+    with tab3:
         st.markdown("基于 qstock 的RPS多因子评分系统")
 
         # ── 缓存结果 ──
@@ -179,9 +256,17 @@ def show():
                          "score": r["total_score"], "strategy": "qstock"} for r in results]
                 save_stock_picks("qstock", picks)
 
-    # ── Tab 3: 综合推荐 ──
-    with tab3:
+    # ── Tab 4: 综合推荐 ──
+    with tab4:
         st.markdown("综合所有策略的最新推荐结果")
+
+        mom_picks = get_stock_picks("momentum_x", limit=15)
+        st.markdown("#### Momentum-X 动量趋势命中")
+        if mom_picks:
+            st.dataframe(pd.DataFrame(mom_picks)[["stock_name", "stock_code", "score"]],
+                       use_container_width=True, hide_index=True)
+        else:
+            st.info("暂无结果")
 
         seq_picks = get_stock_picks("sequoia_x", limit=15)
         st.markdown("#### Sequoia-X 策略命中")

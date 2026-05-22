@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>西方哲学家全景网络图 | Western Philosophers Network</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0f0f1a;color:#e0e0e0;overflow:hidden;height:100vh;display:flex}
+#sidebar{width:300px;min-width:300px;background:#16162a;padding:20px;overflow-y:auto;border-right:1px solid #2a2a4a;z-index:10}
+#sidebar h2{font-size:1.2em;margin-bottom:15px;color:#ffd700}
+#sidebar input,#sidebar select{width:100%;padding:8px 10px;margin:5px 0 12px;border:1px solid #3a3a5a;border-radius:6px;background:#1a1a30;color:#e0e0e0;font-size:0.9em}
+#sidebar input:focus,#sidebar select:focus{outline:none;border-color:#ffd700}
+#school-filters{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px}
+.school-chip{padding:4px 8px;border-radius:12px;font-size:0.7em;cursor:pointer;border:1px solid transparent;transition:all 0.2s;white-space:nowrap}
+.school-chip.active{border-color:#fff;box-shadow:0 0 8px rgba(255,215,0,0.4)}
+.school-chip.inactive{opacity:0.35}
+#results{font-size:0.75em;color:#888;margin-top:5px}
+#main{flex:1;position:relative;overflow:hidden}
+#graph-container{width:100%;height:100%}
+svg{width:100%;height:100%}
+.node{cursor:pointer;transition:opacity 0.3s}
+.node.dimmed{opacity:0.12}
+.link{stroke:#3a3a5a;stroke-opacity:0.4;stroke-width:1.2px}
+.link.dimmed{stroke-opacity:0.04}
+.node-label{position:absolute;pointer-events:none;color:#fff;font-size:12px;font-weight:700;text-align:center;white-space:nowrap;text-shadow:0 0 8px #000,0 0 4px #000,0 0 2px #000,0 0 8px #0f0f1a;transform:translate(-50%, 12px);z-index:5;letter-spacing:0.3px}
+.node-label.dimmed{opacity:0.08 !important}
+#timeline-bar{position:absolute;bottom:20px;left:40px;right:40px;height:50px;background:rgba(22,22,42,0.9);border-radius:8px;display:flex;align-items:center;padding:0 15px;border:1px solid #2a2a4a}
+#timeline-bar label{font-size:0.75em;margin-right:10px;white-space:nowrap}
+#timeline-bar input[type=range]{flex:1;accent-color:#ffd700}
+#timeline-bar span{font-size:0.75em;margin-left:10px;min-width:100px}
+#tooltip{position:absolute;pointer-events:none;background:rgba(22,22,42,0.95);border:1px solid #ffd700;border-radius:8px;padding:10px 14px;font-size:0.8em;max-width:280px;display:none;z-index:100}
+#tooltip h3{margin:0 0 4px;color:#ffd700;font-size:1em}
+#tooltip p{margin:2px 0;color:#ccc}
+#modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:200;display:none;align-items:center;justify-content:center}
+#modal-overlay.show{display:flex}
+#modal{background:#1a1a35;border:1px solid #ffd700;border-radius:12px;max-width:700px;width:90%;max-height:85vh;overflow-y:auto;padding:25px 30px;position:relative;color:#e0e0e0}
+#modal-close{position:absolute;top:10px;right:15px;font-size:1.4em;cursor:pointer;color:#888;background:none;border:none}
+#modal-close:hover{color:#ffd700}
+#modal h2{color:#ffd700;margin-bottom:5px}
+#modal .years{color:#888;font-size:0.85em;margin-bottom:12px}
+#modal .section{margin:12px 0}
+#modal .section h4{color:#ffd700;font-size:0.85em;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px}
+#modal .section p{font-size:0.85em;line-height:1.5;color:#ccc}
+#modal .tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.75em;margin:2px 3px}
+#legend{position:absolute;top:15px;right:15px;background:rgba(22,22,42,0.9);padding:10px 14px;border-radius:8px;font-size:0.7em;border:1px solid #2a2a4a;z-index:10}
+#legend .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
+#legend div{margin:3px 0}
+.zoom-btn{position:absolute;left:15px;background:rgba(22,22,42,0.9);border:1px solid #2a2a4a;color:#ccc;width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:1.2em;display:flex;align-items:center;justify-content:center;z-index:10}
+.zoom-btn:hover{color:#ffd700;border-color:#ffd700}
+#zoom-in{top:80px}#zoom-out{top:118px}#zoom-reset{top:156px}
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h2>🏛 哲学家网络</h2>
+  <input type="text" id="search" placeholder="🔍 搜索哲学家姓名...">
+  <select id="school-select">
+    <option value="all">所有流派</option>
+    <option value="ancient">古希腊 / 古典</option>
+    <option value="rationalism">大陆理性主义</option>
+    <option value="empiricism">英国经验主义</option>
+    <option value="idealism">德国观念论</option>
+    <option value="existentialism">存在主义 / 现象学</option>
+    <option value="marxism">马克思主义 / 批判理论</option>
+    <option value="psychoanalysis">精神分析</option>
+    <option value="poststructuralism">后结构主义 / 解构</option>
+  </select>
+  <div id="school-filters"></div>
+  <div id="results">共 <strong id="node-count">40</strong> 位哲学家</div>
+  <div style="margin-top:18px;font-size:0.7em;color:#666;line-height:1.5">
+    <strong>操作:</strong><br>
+    🖱 拖拽节点移动<br>
+    🖱 滚轮缩放<br>
+    👆 点击节点查看详情<br>
+    🔍 搜索框过滤<br>
+  </div>
+</div>
+
+<div id="main">
+  <div id="graph-container"></div>
+  <div id="tooltip"></div>
+  <button class="zoom-btn" id="zoom-in" title="放大">+</button>
+  <button class="zoom-btn" id="zoom-out" title="缩小">−</button>
+  <button class="zoom-btn" id="zoom-reset" title="重置">↺</button>
+  <div id="legend"></div>
+  <div id="timeline-bar">
+    <label>⏳ 时间范围:</label>
+    <input type="range" id="year-min" min="-470" max="1950" value="-470" step="10">
+    <span id="year-label">470 BC — 1950 AD</span>
+  </div>
+</div>
+
+<div id="modal-overlay">
+  <div id="modal">
+    <button id="modal-close">✕</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+// ========== PHILOSOPHER DATA ==========
+const philosophers = [
+  {id:"socrates",name:"苏格拉底 Socrates",years:"470–399 BC",school:"ancient",century:-400,
+   teachers:"无正式师承；受阿那克萨戈拉自然哲学间接影响",
+   life:"雅典公民，参加伯罗奔尼撒战争。在广场以问答法讨论美德。公元前399年被以'不敬神'罪名判处死刑，饮毒酒而死。",
+   ideas:"无知之知；苏格拉底反诘法(elenchus)；德性即知识；灵魂的关怀优先于财富名誉",
+   events:"伯罗奔尼撒战争；三十僭主统治；公元前399年的审判与死刑",
+   works:"无著作，思想见于柏拉图早期对话录(《申辩篇》《克里同篇》等)和色诺芬著作",
+   papers:"柏拉图《申辩篇》苏格拉底的辩护；色诺芬《回忆苏格拉底》",
+   evolution:"思想首先在柏拉图早期对话中呈现(反诘法)→中期对话中'苏格拉底'开始承载柏拉图的理念论→影响犬儒学派和昔兰尼学派"},
+
+  {id:"plato",name:"柏拉图 Plato",years:"428–348 BC",school:"ancient",century:-400,
+   teachers:"苏格拉底(追随约8-10年)",
+   life:"雅典贵族。苏格拉底死后游历地中海，三次赴叙拉古试图实现哲人王理想均失败。约387 BC创办学园(Academy)。执教至80岁。",
+   ideas:"理念论(Theory of Forms)；灵魂三分(理性/激情/欲望)；哲人王；洞穴喻；回忆说(Anamnesis)；爱欲(Eros)作为通往至善的动力",
+   events:"苏格拉底之死(399 BC)；三次叙拉古之行失败；创办学园——影响了此后千年",
+   works:"早期:《申辩篇》《克里同篇》；中期:《斐多篇》《会饮篇》《理想国》；晚期:《巴门尼德篇》《智者篇》《蒂迈欧篇》《法律篇》",
+   papers:"《理想国》洞穴喻(VII卷)；《斐多篇》灵魂不朽论证；《巴门尼德篇》'第三人论证'自我批判；《蒂迈欧篇》宇宙论",
+   evolution:"早期对话录记录苏格拉底反诘法→《美诺篇》回忆说→《斐多篇》理念论→《会饮篇》爱与美→《理想国》政哲体系→《巴门尼德篇》自我批判→《智者篇》通种论修正→《蒂迈欧篇》宇宙论"},
+
+  {id:"aristotle",name:"亚里士多德 Aristotle",years:"384–322 BC",school:"ancient",century:-300,
+   teachers:"柏拉图(在学园学习20年)",
+   life:"马其顿御医之子。17岁入柏拉图学园。曾任亚历山大大帝教师。335 BC返雅典创办吕克昂(Lyceum)。亚历山大死后因反马其顿情绪流亡。",
+   ideas:"实体论(Hylomorphism)；四因说；潜能与现实；中道(Golden Mean)；幸福(Eudaimonia)；人是政治动物；范畴论；三段论逻辑",
+   events:"柏拉图去世离开学园；任亚历山大大帝教师；创办吕克昂；亚历山大死后流亡",
+   works:"逻辑:《范畴篇》；形而上学:《形而上学》；伦理学:《尼各马可伦理学》；政治学:《政治学》；自然哲学:《物理学》；心灵:《论灵魂》；诗学:《诗学》",
+   papers:"《形而上学》卷VII实体论；《尼各马可伦理学》卷I-II幸福与中道；《政治学》卷I人是政治动物；《论灵魂》灵魂作为身体的形式",
+   evolution:"《范畴篇》→《物理学》四因说→《形而上学》批判理念论+实体论→《论灵魂》心身关系→《尼各马可伦理学》→《政治学》"},
+
+  {id:"hobbes",name:"霍布斯 Hobbes",years:"1588–1679",school:"empiricism",century:1600,
+   teachers:"与培根有交往；受伽利略机械物理学影响",
+   life:"牛津大学毕业。担任卡文迪什家族教师。英国内战时流亡巴黎11年。曾担任未来查理二世的数学教师。晚年被指控无神论。",
+   ideas:"自然状态:'一切人反对一切人的战争'；社会契约；利维坦：绝对主权者；唯物论；法律是主权者的命令",
+   events:"英国内战(1642-1651)；在巴黎与笛卡尔论战(第三组反驳)；《利维坦》巨大争议",
+   works:"《论公民》(1642)；《利维坦》(1651)；《论物体》(1655)；《论人》(1658)",
+   papers:"《利维坦》第13章：自然状态最著名段落；第14-15章社会契约；第17章利维坦的产生",
+   evolution:"早期手稿→《论公民》系统化→《利维坦》从感觉论到政治神学→晚年《比希莫特》内战史"},
+
+  {id:"descartes",name:"笛卡尔 Descartes",years:"1596–1650",school:"rationalism",century:1600,
+   teachers:"耶稣会拉弗莱什学院经院哲学；受毕达哥拉斯传统数学影响",
+   life:"法国贵族。在拉弗莱什接受经院哲学教育。1628年移居荷兰隐居20年写作。1649年赴瑞典任女王教师，次年死于肺炎。",
+   ideas:"'我思故我在'(Cogito ergo sum)；心物二元论；天赋观念(innate ideas)；理性直觉与演绎是知识的唯二可靠途径；机械论世界观",
+   events:"1619年'炉边三梦'——悟出统一科学的数学方法；1633年伽利略被定罪——笛卡尔撤回《世界论》；瑞典女王邀请导致死亡",
+   works:"《谈谈方法》(1637)；《第一哲学沉思集》(1641)；《哲学原理》(1644)；《论灵魂的激情》(1649)",
+   papers:"《第一哲学沉思集》全部六篇——从普遍怀疑到心物二元论的完整体现",
+   evolution:"《谈谈方法》'我思'雏形+解析几何→《沉思集》完整形而上学体系(怀疑→我思→上帝→世界)→《哲学原理》教科书化→《激情》伦理学转向"},
+
+  {id:"spinoza",name:"斯宾诺莎 Spinoza",years:"1632–1677",school:"rationalism",century:1600,
+   teachers:"受笛卡尔理性主义深刻影响；早期犹太经学教育",
+   life:"生于阿姆斯特丹葡萄牙犹太移民家庭。1656年因异端思想被犹太社区驱逐。以磨镜片维生，终身未婚。拒绝海德堡大学教授职位。44岁死于肺病。",
+   ideas:"一元论/泛神论：'神即自然'(Deus sive Natura)；实体-属性-样式三层结构；心物平行论；Conatus(自我保存的努力)；圣经批判",
+   events:"1656年被犹太社区永久驱逐；匿名出版著作避免迫害；拒绝大学教授职位",
+   works:"《笛卡尔哲学原理》(1663)；《神学政治论》(1670)；《伦理学》(1677遗著)；《知性改进论》(1677未完成)",
+   papers:"《伦理学》全五卷以几何学格式推导——从神即实体出发到人的自由",
+   evolution:"《笛卡尔哲学原理》阐述笛卡尔体系→《知性改进论》方法探究→《神学政治论》圣经批判→《伦理学》巅峰：欧几里得公理-命题推导"},
+
+  {id:"leibniz",name:"莱布尼茨 Leibniz",years:"1646–1716",school:"rationalism",century:1700,
+   teachers:"受笛卡尔和斯宾诺莎影响；1676年与斯宾诺莎当面交谈",
+   life:"神童，15岁入莱比锡大学。在汉诺威宫廷任职终身。与牛顿独立发明微积分。广泛通信覆盖全欧洲。晚年受冷落，去世时几乎无人参加葬礼。",
+   ideas:"单子论(Monadology)；前定和谐(pre-established harmony)；充分理由律；'可能世界中最好的世界'(神义论)；普遍字符(Characteristica universalis)",
+   events:"1676年会见斯宾诺莎——看到《伦理学》手稿；微积分优先权之争；柏林科学院首任院长",
+   works:"《形而上学论》(1686)；《人类理智新论》(1704)；《神义论》(1710)；《单子论》(1714)",
+   papers:"《单子论》90条命题——单子、前定和谐、最好的世界最浓缩表述；《人类理智新论》逐章反驳洛克白板说",
+   evolution:"《形而上学论》个体实体的完整概念→《新系统》首次提出'单子'→《理智新论》反驳洛克→《神义论》最好的世界→《单子论》90条遗嘱"},
+
+  {id:"locke",name:"洛克 Locke",years:"1632–1704",school:"empiricism",century:1600,
+   teachers:"牛津大学经院哲学；受笛卡尔和牛顿经验科学影响",
+   life:"律师家庭。牛津大学后成为沙夫茨伯里伯爵私人医生和政治顾问。流亡荷兰6年(1683-89)。光荣革命后返英担任政府职务。",
+   ideas:"白板说(Tabula Rasa)；第一性质/第二性质区分；人格同一性由意识连续性构成；自然权利：生命、自由、财产；社会契约；宗教宽容",
+   events:"作为沙夫茨伯里伯爵顾问深度参与辉格党政治；流亡荷兰完成著作；光荣革命返英",
+   works:"《人类理解论》(1689)；《政府论两篇》(1689)；《论宗教宽容》(1689)；《教育漫话》(1693)",
+   papers:"《人类理解论》卷二批判天赋观念；《政府论》下篇自然权利与社会契约——为美国独立宣言提供理论基础",
+   evolution:"《人类理解论》批判笛卡尔天赋观念→《政府论》经验主义→政治哲学→被贝克莱极端化→被休谟推向怀疑论"},
+
+  {id:"hume",name:"休谟 Hume",years:"1711–1776",school:"empiricism",century:1700,
+   teachers:"受洛克经验主义和贝克莱观念论影响；受牛顿实验方法启发",
+   life:"苏格兰贵族。爱丁堡大学(未毕业)。法国隐居三年写成《人性论》——自称'在印刷机中死产'。竞聘爱丁堡大学教授失败(被控无神论)。晚年以历史学家闻名。",
+   ideas:"印象与观念的区分；因果关系的怀疑论——因果关系只是恒常联结的习惯；归纳问题；自我的束论；是与应当的鸿沟(Hume's Guillotine)",
+   events:"1745年竞聘教授失败；在巴黎沙龙极受欢迎；与卢梭的著名冲突(收留后被怀疑谋害他)；临终保持不信灵魂不朽",
+   works:"《人性论》(1739-40)；《人类理解研究》(1748)；《道德原理研究》(1751)；《自然宗教对话录》(1779遗著)",
+   papers:"《人类理解研究》因果关系的怀疑论；《人性论》'论人格同一性'——自我束论",
+   evolution:"《人性论》完整经验主义→改写为《人类理解研究》因果关系→《道德原理研究》同情和效益→《自然宗教对话录》批判设计论证→'将康德从独断迷梦中唤醒'"},
+
+  {id:"rousseau",name:"卢梭 Rousseau",years:"1712–1778",school:"idealism",century:1700,
+   teachers:"自学为主；受洛克、霍布斯影响但多持批判态度",
+   life:"日内瓦钟表匠之子。16岁离家流浪。以《论科学与艺术》获奖成名。著作多次被查禁焚烧，流亡多年。晚年患被害妄想。去世16年后被法国革命者迁入先贤祠。",
+   ideas:"'高贵的野蛮人'——文明使人堕落；社会契约——公意(general will)是主权的真正基础；自然教育；自爱(amour de soi)vs虚荣(amour-propre)",
+   events:"第戎学院征文获奖——一举成名；著作被焚烧通缉；与休谟的冲突(1766)；被法国大革命追认为精神导师",
+   works:"《论科学与艺术》(1750)；《论人类不平等的起源》(1755)；《社会契约论》(1762)；《爱弥儿》(1762)；《忏悔录》(1782)",
+   papers:"《社会契约论》公意理论；《爱弥儿》自然教育——使康德打破作息，影响康德的道德自律观",
+   evolution:"《论科学与艺术》文明腐化人性→《论不平等》私有制是不平等的根源→《社会契约论》公意→《爱弥儿》教育实践→《忏悔录》自传"},
+
+  {id:"kant",name:"康德 Kant",years:"1724–1804",school:"idealism",century:1700,
+   teachers:"受休谟'从独断迷梦中唤醒'；受卢梭伦理学深刻影响；继承莱布尼茨-沃尔夫理性主义",
+   life:"马具匠之子。柯尼斯堡大学后做9年家庭教师。终身未离开柯尼斯堡。生活极有规律(下午3:30散步)。57岁出版《纯粹理性批判》。",
+   ideas:"哥白尼式革命；现象与物自身的区分；先验感性论(时空是先天的直观形式)；12个范畴；定言命令(Categorical Imperative)；人是目的；审美判断的无利害性",
+   events:"休谟'唤醒'——促使批判哲学诞生；读卢梭《爱弥儿》打破作息；法国大革命；1794年普鲁士国王禁其宗教著作",
+   works:"《纯粹理性批判》(1781/A 1787/B)；《道德形而上学奠基》(1785)；《实践理性批判》(1788)；《判断力批判》(1790)",
+   papers:"《纯粹理性批判》先验演绎；《道德形而上学奠基》定言命令三公式；《判断力批判》审美判断",
+   evolution:"前批判期→休谟唤醒→《纯批》现象/物自身→《奠基》定言命令→《实批》实践理性公设→《判批》沟通自然与自由"},
+
+  {id:"hegel",name:"黑格尔 Hegel",years:"1770–1831",school:"idealism",century:1800,
+   teachers:"受康德先验哲学+斯宾诺莎一元论启发；图宾根神学院与谢林和荷尔德林为室友",
+   life:"做过家庭教师和校长。1818年任柏林大学教授直至因霍乱去世。在柏林期间影响力极大，普鲁士政府视其为官方哲学家。",
+   ideas:"辩证法(正-反-合/扬弃Aufhebung)；绝对精神自我展开；主奴辩证法；'现实的即合理的'；历史是自由意识进步；伦理生活(Sittlichkeit):家庭→市民社会→国家",
+   events:"目睹拿破仑骑马经过——'马背上的世界精神'；终生庆祝巴士底日；耶拿战役前夕完成《精神现象学》",
+   works:"《精神现象学》(1807)；《逻辑学》(1812-16)；《哲学科学百科全书》(1817)；《法哲学原理》(1821)",
+   papers:"《精神现象学》主奴辩证法章节；《法哲学原理》序言'现实即合理'",
+   evolution:"《精神现象学》意识→自我意识(主奴)→理性→绝对知识→《逻辑学》纯范畴辩证法→《百科全书》三大部分→《法哲学原理》社会政治应用→讲演录"},
+
+  {id:"schopenhauer",name:"叔本华 Schopenhauer",years:"1788–1860",school:"idealism",century:1800,
+   teachers:"受康德现象/物自身区分和柏拉图理念论深刻影响；强烈批判黑格尔('江湖骗子')；受印度《奥义书》启发",
+   life:"富商之子。继承遗产终身不工作。在柏林大学故意与黑格尔同时段设课，几乎无人选课。晚年以《附录与补遗》意外成名。终身与卷毛狗为伴。",
+   ideas:"'世界是我的表象'+'世界是我的意志'——物自身是盲目的生存意志；生命在痛苦与无聊间摇摆；审美静观和禁欲是解脱之道；同情是道德的根源",
+   events:"与黑格尔在柏林大学竞争惨败；受歌德赏识；晚年在法兰克福成名——瓦格纳献《尼伯龙根的指环》给他",
+   works:"《论充足理由律的四重根》(1813)；《作为意志与表象的世界》(1819/1844)；《附录与补遗》(1851)",
+   papers:"《作为意志与表象的世界》全四卷体系；《附录与补遗》通俗散文获大众成功",
+   evolution:"《四重根》认识论基础→《作为意志与表象》完整体系(无反响)→25年后二版增补→《附录》通俗化→启发尼采和瓦格纳"},
+
+  {id:"kierkegaard",name:"克尔凯郭尔 Kierkegaard",years:"1813–1855",school:"existentialism",century:1800,
+   teachers:"受苏格拉底反诘法深刻启发(博士论文《论反讽概念》)；批判黑格尔体系哲学",
+   life:"哥本哈根富商第七子。与丽琪娜·奥尔森解除婚约成为思想转折。以各种笔名出版大量著作。最后猛烈攻击丹麦国教会。42岁倒地去世。",
+   ideas:"人生三阶段(审美→伦理→宗教)；'信仰的跳跃'(leap of faith)；焦虑是'自由的晕眩'；致死的疾病即绝望；主体性即真理；'单一个体'面对上帝",
+   events:"与丽琪娜解除婚约——影响焦虑和选择哲学；《海盗报》事件；临终攻击国教会",
+   works:"《非此即彼》(1843)；《恐惧与战栗》(1843)；《焦虑的概念》(1844)；《致死的疾病》(1849)",
+   papers:"《恐惧与战栗》'对伦理的目的论悬置'——亚伯拉罕案例；《致死的疾病》绝望的诸形式",
+   evolution:"《论反讽》→《非此即彼》审美vs伦理→《恐惧与战栗》宗教阶段→《焦虑的概念》→《致死的疾病》自我关系分析"},
+
+  {id:"marx",name:"马克思 Marx",years:"1818–1883",school:"marxism",century:1800,
+   teachers:"受黑格尔辩证法影响(青年黑格尔派)；受费尔巴哈唯物论启发；受亚当·斯密和李嘉图古典政经学影响",
+   life:"犹太律师家庭。波恩和柏林大学。流亡巴黎、布鲁塞尔和伦敦。与恩格斯终身合作。第一国际精神领袖。葬于伦敦海格特公墓。",
+   ideas:"历史唯物主义；经济基础与上层建筑；剩余价值理论；异化劳动(四重异化)；阶级斗争；商品拜物教；共产主义",
+   events:"与恩格斯的终身合作(1844)；1848年革命——《共产党宣言》；流亡伦敦30年在博物馆研究政经；第一国际；巴黎公社",
+   works:"《1844年手稿》；《德意志意识形态》(1845-46)；《共产党宣言》(1848)；《资本论》第一卷(1867)",
+   papers:"《资本论》卷I第一章'商品'——价值形式与商品拜物教；《1844手稿》'异化劳动'；《政治经济学批判·序言》历史唯物论浓缩",
+   evolution:"《1844手稿》异化劳动(费尔巴哈人本学)→《德意意识形态》历史唯物论→《宣言》政治纲领→《资本论》商品出发→剩余价值→晚年关注非西方形态"},
+
+  {id:"nietzsche",name:"尼采 Nietzsche",years:"1844–1900",school:"existentialism",century:1800,
+   teachers:"早年深受叔本华《作为意志与表象的世界》震撼；受瓦格纳艺术观影响(后决裂)",
+   life:"24岁成为巴塞尔大学古典语文学教授。35岁因病辞教，辗转瑞士意法边境疯狂写作。1889年在都灵抱马颈痛哭后精神崩溃。最后11年由母亲和妹妹照料。",
+   ideas:"'上帝已死'与虚无主义；权力意志(der Wille zur Macht)；超人(Übermensch)；永劫轮回；主人道德vs奴隶道德；阿波罗vs狄奥尼索斯",
+   events:"与瓦格纳的崇拜-友谊-决裂(1876)；'上帝已死'宣告；都灵精神崩溃(1889)；妹妹篡改遗稿编成《权力意志》为纳粹所用",
+   works:"《悲剧的诞生》(1872)；《快乐的科学》(1882)；《查拉图斯特拉》(1883-85)；《善恶的彼岸》(1886)；《道德的谱系》(1887)",
+   papers:"《道德的谱系》第三篇'禁欲主义理念'；《悲剧的诞生》阿波罗/狄奥尼索斯二元论",
+   evolution:"《悲剧的诞生》→《人性的》科学转向→《快乐的科学》上帝已死+永劫轮回→《查拉图斯特拉》三大教义→《善恶的彼岸》《谱系》系统化"},
+
+  {id:"freud",name:"弗洛伊德 Freud",years:"1856–1939",school:"psychoanalysis",century:1900,
+   teachers:"师从沙尔科(巴黎)和布洛伊尔(谈话疗法)；哲学上受叔本华无意识和尼采启发",
+   life:"维也纳犹太家庭。医学博士。与布洛伊尔合作后独立发展精神分析。1900年《梦的解析》标志精神分析诞生。1938年纳粹吞并奥地利后流亡伦敦，次年因口腔癌去世。",
+   ideas:"无意识；本我-自我-超我(1923年后)；俄狄浦斯情结；压抑与防御机制；梦是'通向无意识的王道'；死亡驱力(晚期)",
+   events:"师从沙尔科研究歇斯底里；与布洛伊尔合作和决裂；与荣格的继承和决裂(1913)；纳粹焚书(1933)；流亡伦敦(1938)",
+   works:"《梦的解析》(1900)；《性欲三论》(1905)；《超越快乐原则》(1920)；《自我与本我》(1923)；《文明及其不满》(1930)",
+   papers:"《梦的解析》第七章无意识理论+梦的工作；《超越快乐原则》V-VI死亡驱力；《文明及其不满》；《论无意识》(1915)",
+   evolution:"催眠→自由联想→《梦的解析》→性驱力发展论→《超越快乐》死亡驱力→《自我与本我》三结构→文化/宗教分析"},
+
+  {id:"husserl",name:"胡塞尔 Husserl",years:"1859–1938",school:"existentialism",century:1900,
+   teachers:"师从布伦塔诺(继承'意向性'概念)；受笛卡尔和康德影响",
+   life:"数学博士后在哈勒大学做助手。哥廷根大学教授(1901-16)，弗赖堡大学教授(1916-28)。1928年海德格尔继任教席。1933年纳粹上台后被剥夺荣誉教授头衔。",
+   ideas:"'回到事物本身！'；悬搁(epoché)；意向性；本质直观(eidetic reduction)；先验现象学；生活世界(Lebenswelt)；内部时间意识(滞留-原印象-前摄)",
+   events:"1884-86年听布伦塔诺讲座；《逻辑研究》出版(1900-01)——现象学诞生；海德格尔继任教席；纳粹下的晚年孤立",
+   works:"《逻辑研究》(1900-01)；《观念I》(1913)；《笛卡尔式的沉思》(1931)；《危机》(1936/1954遗著)",
+   papers:"《逻辑研究》第五研究'意向体验'；《观念I》§27-32现象学还原；《危机》§9伽利略对自然的数学化",
+   evolution:"早期心理主义→《逻辑研究》反心理主义→《观念I》先验转向→《沉思》交互主体性→《危机》生活世界历史转向"},
+
+  {id:"heidegger",name:"海德格尔 Heidegger",years:"1889–1976",school:"existentialism",century:1900,
+   teachers:"师从胡塞尔(1919-28年助教+继承弗赖堡教席)；受亚里士多德、克尔凯郭尔和尼采深刻影响",
+   life:"德国梅斯基希天主教家庭。弗赖堡大学神学转哲学。1927年《存在与时间》出版一举成名。1933年任弗赖堡大学校长并加入纳粹党(10个月后辞职)。战后被禁教5年。晚年隐居黑森林。",
+   ideas:"存在与存在者的'存在论差异'；此在(Dasein)——'在世界之中存在'；'向死而存在'(Sein-zum-Tode)；被抛-筹划-沉沦；'烦'(Sorge)是此在之存在的整体结构；'转向'(Kehre)后：语言是存在之家；技术作为'集置'(Gestell)遮蔽存在的真理",
+   events:"1919年脱离天主教体系；与汉娜·阿伦特的恋情(1924-26)；1933年校长就职演说——纳粹牵连引发持久争议；战后禁教(1945-50)",
+   works:"《存在与时间》(1927)；《形而上学导论》(1935/1953)；《林中路》(1950)；《通向语言之途》(1959)",
+   papers:"《存在与时间》导论+第一部前两篇——此在的基础分析；《关于技术的追问》(1953)；《什么是形而上学？》(1929)",
+   evolution:"早期亚里士多德现象学→《存在与时间》此在基础存在论→1930年代'转向'→后期语言-诗-技术思考(荷尔德林阐释)→深远影响萨特、德里达、阿甘本、列维纳斯"},
+
+  {id:"wittgenstein",name:"维特根斯坦 Wittgenstein",years:"1889–1951",school:"rationalism",century:1900,
+   teachers:"师从罗素(剑桥,1911-13)；受弗雷格逻辑主义、叔本华和克尔凯郭尔影响",
+   life:"维也纳钢铁巨头家庭(八个子女中最小)。曼彻斯特工程学→剑桥师从罗素。一战在战壕完成《逻辑哲学论》。战后放弃哲学去奥地利乡村教书(1920-26)。1929年返剑桥，激烈批评自己早期哲学。剑桥教授(1939-47)。终身未发表第二部著作。",
+   ideas:"早期：'世界是事实的总和不是事物的总和'；语言的图像理论；'可以说的都可以说清楚，不可说的必须保持沉默'；逻辑是重言式。晚期：'语言游戏'；'家族相似性'；'意义即使用'；'私人语言'不可能；'遵守规则'是社会实践",
+   events:"一战战壕中完成《逻辑哲学论》；将巨额遗产分给兄弟姐妹(1919)；在奥地利乡村小学教书6年；返剑桥后完全推翻早期哲学",
+   works:"《逻辑哲学论》(1921)；《哲学研究》(1953遗著)；《蓝皮书与棕皮书》(1958)",
+   papers:"《逻辑哲学论》全部七个命题——浓缩一生的早期哲学；《哲学研究》§1-133语言游戏与遵守规则",
+   evolution:"《逻辑哲学论》→七年沉默→1929年归返→语言游戏批判自己早期→《哲学研究》→影响分析哲学(维也纳学派)+日常语言学派(牛津)"},
+
+  {id:"bergson",name:"柏格森 Bergson",years:"1859–1941",school:"existentialism",century:1900,
+   teachers:"受斯宾塞进化论影响但批判；受法国唯灵论传统影响(Maine de Biran)",
+   life:"巴黎高师毕业。法兰西学院教授(1900-21)，讲课轰动巴黎社交界。1927年获诺贝尔文学奖。晚年倾向天主教但因纳粹反犹拒绝改宗。",
+   ideas:"绵延(durée)——真实时间是质的流动；直觉(intuition)vs概念分析；生命冲力(élan vital)；封闭社会vs开放社会；笑的社会功能",
+   events:"法兰西学院讲演——柏格森主义风潮；与爱因斯坦时间辩论(1922)；诺贝尔文学奖(1927)；拒绝纳粹时期改宗特权",
+   works:"《时间与自由意志》(1889)；《物质与记忆》(1896)；《创造进化论》(1907)；《道德与宗教的两个来源》(1932)",
+   papers:"《时间与自由意志》第二章'绵延'；《创造进化论》第一章生命冲力vs机械论",
+   evolution:"《时间与自由意志》绵延vs空间化时间→《物质与记忆》心物关系→《创造进化论》生命冲力→《道德与宗教》社会伦理→启发德勒兹"},
+
+  {id:"benjamin",name:"本雅明 Benjamin",years:"1892–1940",school:"marxism",century:1900,
+   teachers:"与阿多诺和肖勒姆(犹太神秘主义)复杂关系；受马克思和布莱希特影响",
+   life:"犹太富裕家庭。以自由知识分子和翻译家身份活动。纳粹上台后流亡巴黎。1940年为逃离纳粹在西班牙边境因被拒入境服吗啡自杀。",
+   ideas:"灵晕(Aura)的衰落——机械复制使艺术作品失去独一无二性；辩证意象；'历史的天使'；弥赛亚式的历史唯物主义；闲逛者(Flâneur)",
+   events:"与阿多诺的智识关系和张力；与布莱希特的友谊；《拱廊计划》(1927-40未完成)；1940年自杀——手提箱手稿至今未完全找到",
+   works:"《机械复制时代的艺术作品》(1935)；《巴黎，19世纪的首都》(1935/39)；《历史哲学论纲》(1940)",
+   papers:"《机械复制时代的艺术作品》全文；《历史哲学论纲》第IX条'历史的天使'；《翻译者的任务》(1923)",
+   evolution:"早期浪漫派研究→《悲苦剧》巴洛克废墟美学→转向马克思主义→《拱廊计划》→《机械复制》→《论纲》弥赛亚救赎"},
+
+  {id:"bataille",name:"巴塔耶 Bataille",years:"1897–1962",school:"poststructuralism",century:1900,
+   teachers:"受尼采(神圣性)、杜克海姆社会学派和黑格尔(科耶夫讲座)深刻影响",
+   life:"巴黎文献学院毕业，长期任国家图书馆图书管理员。参与超现实主义并与布勒东论战。创立社会学学院和《无头》秘密社团。创办《批评》杂志。",
+   ideas:"普遍经济学——太阳发射过剩能量，宇宙的问题是耗费过剩而非短缺；被诅咒的部分(la part maudite)；越界；无神论的内在经验；色情=个体不连续性的瓦解",
+   events:"参加科耶夫黑格尔讲座；创立《无头》秘密社团；与布勒东超现实主义论战；深刻影响福柯、德里达和鲍德里亚",
+   works:"《内在经验》(1943)；《被诅咒的部分》(1949)；《色情》(1957)",
+   papers:"《被诅咒的部分》第一章'普遍经济学的意义'；《色情》第二部分'越界'",
+   evolution:"超现实-色情文学→《内在经验》无神论神秘主义→《被诅咒的部分》普遍经济学→《色情》越界-禁忌体系"},
+
+  {id:"lacan",name:"拉康 Lacan",years:"1901–1981",school:"psychoanalysis",century:1900,
+   teachers:"'回到弗洛伊德'；受黑格尔(科耶夫讲座)、索绪尔和列维-斯特劳斯影响",
+   life:"巴黎中产天主教家庭。精神病学博士。1953年被IPA开除后独立发展。著名公开研讨班长达30年(Seminar I-XXVII)。",
+   ideas:"'无意识像语言一样结构'；三界(想象界-象征界-实在界)；镜像阶段；欲望是大他者的欲望；对象小a(objet petit a)；不存在性关系；圣状(sinthome)",
+   events:"参加科耶夫黑格尔讲座；被IPA开除(1953)；30年公开研讨班影响法国几代思想家；与福柯、德里达同步崛起",
+   works:"《文集》(Écrits,1966)；研讨班XI(1964):精神分析的四个基本概念；研讨班XX(1972-73):再来一次",
+   papers:"《罗马报告》(1953)；《无意识的代理函件》(1957)；《研讨班XI》异化与分离；《研讨班XX》女性享乐",
+   evolution:"精神病学研究→1953语言-黑格尔转向→研讨班I-V符号学→XI:对象a+异化分离→XX:女性享乐→晚期波洛米结+圣状"},
+
+  {id:"adorno",name:"阿多诺 Adorno",years:"1903–1969",school:"marxism",century:1900,
+   teachers:"法兰克福学派核心；受黑格尔、马克思和弗洛伊德三者综合；与霍克海默终生合作；早年跟贝尔格学作曲",
+   life:"犹太商人家庭。以胡塞尔论文获博士。纳粹时期流亡英-美(与霍克海默合著《启蒙辩证法》)。1951年返法兰克福重建研究所。1960年代与学生运动关系复杂。",
+   ideas:"否定辩证法——概念永远无法穷尽对象；启蒙辩证法：理性内在地倒退回神话；'奥斯维辛之后写诗是野蛮的'；文化工业；非同一性",
+   events:"与霍克海默合作；纳粹时期流亡——《启蒙辩证法》背景；'奥斯维辛之后的教育'；与学生运动复杂关系",
+   works:"《启蒙辩证法》(1947,与霍克海默)；《最低限度的道德》(1951)；《否定辩证法》(1966)；《美学理论》(1970遗著)",
+   papers:"《启蒙辩证法》'文化工业:启蒙作为大众欺骗'；《否定辩证法》导论；《最低限度的道德》格言选",
+   evolution:"早期音乐-美学→《启蒙辩证法》工具理性批判+文化工业→《最低道德》格言体→《否定辩证法》哲学巅峰→《美学理论》"},
+
+  {id:"sartre",name:"萨特 Sartre",years:"1905–1980",school:"existentialism",century:1900,
+   teachers:"在柏林研读胡塞尔和海德格尔；受笛卡尔自由意志和黑格尔主奴辩证法影响",
+   life:"巴黎高师毕业。二战被俘9个月。战后成为法国存在主义象征。拒绝诺贝尔文学奖(1964)。与波伏娃终身伴侣。参与五月风暴。巴黎五万人送葬。",
+   ideas:"'存在先于本质'；自为存在(pour-soi)vs自在存在(en-soi)；'人是被判定为自由的'；他者的目光；自欺(mauvaise foi)；介入(engagement)",
+   events:"二战被俘经历；1945年'存在主义是一种人道主义'演讲轰动巴黎；拒绝诺贝尔文学奖(1964)；参与五月风暴(1968)",
+   works:"《恶心》(1938)；《存在与虚无》(1943)；《存在主义是一种人道主义》(1946)；《辩证理性批判》(1960)",
+   papers:"《存在主义是一种人道主义》全文——存在先于本质；《存在与虚无》'自欺'+'注视'章节",
+   evolution:"早期想象现象学→《存在与虚无》存在主义本体论→《存在主义是一种人道主义》通俗化→《辩证理性批判》综合存在主义与马克思主义"},
+
+  {id:"levinas",name:"列维纳斯 Levinas",years:"1906–1995",school:"existentialism",century:1900,
+   teachers:"1928-29年在弗赖堡师从胡塞尔+首次接触海德格尔；受犹太塔木德传统深刻影响；与布朗肖终生友谊",
+   life:"立陶宛犹太家庭。1928-29年在弗赖堡亲聆胡塞尔和海德格尔。二战被俘五年(家人在大屠杀中几乎全部遇难)。战后任索邦等大学教授。",
+   ideas:"伦理学是第一哲学——不是本体论而是对他者的责任是哲学根基；他者的面孔(le visage)——'你不可杀我'的伦理命令；'面孔'的脆弱与命令；替代(substitution):我是他者的'人质'",
+   events:"弗赖堡亲聆胡塞尔与海德格尔；二战战俘营五年；罗森茨维格《救赎之星》的深刻影响",
+   works:"《从存在到存在者》(1947)；《时间与他者》(1948)；《整体与无限》(1961)；《异于存在或超越本质》(1974)",
+   papers:"《整体与无限》'面孔与外在性'；《异于存在》'替代'章节——最激进表达；《伦理与无限》访谈入门",
+   evolution:"早期胡塞尔→战后挣脱海德格尔存在→'ilya'无名存在→《整体与无限》他者面孔→《异于存在》替代+人质+预言"},
+
+  {id:"merleauponty",name:"梅洛-庞蒂 Merleau-Ponty",years:"1908–1961",school:"existentialism",century:1900,
+   teachers:"与萨特、波伏娃同为巴黎高师同窗；受胡塞尔(晚期生活世界+身体)、格式塔心理学影响",
+   life:"巴黎高师毕业，二战参加法国陆军。任里昂大学、索邦教授。法兰西学院教授(最年轻之一)。因朝鲜战争立场与萨特决裂。53岁因心脏病突发去世。",
+   ideas:"身体-主体(body-subject)——身体不是客体而是'在世界中存在'的载体；知觉的首要性；肉(la chair)——克服心身二元的第三种存在；意向弧(intentional arc)",
+   events:"聆听科耶夫黑格尔讲座和科耶尔胡塞尔手稿研究；与萨特共同创办但后决裂的《现代》；法兰西学院教授(1952)",
+   works:"《行为的结构》(1942)；《知觉现象学》(1945)；《可见的与不可见的》(1964遗著未完成)",
+   papers:"《知觉现象学》序言+第一部分'身体'——身体现象学核心；《眼与心》(1960)以塞尚阐释身体知觉",
+   evolution:"《行为的结构》格式塔+现象学→《知觉现象学》身体出发点→《人道主义与恐怖》政治→《可见的与不可见》肉本体论+交织(chiasm)"},
+
+  {id:"beauvoir",name:"波伏娃 Beauvoir",years:"1908–1986",school:"existentialism",century:1900,
+   teachers:"萨特终身伴侣+思想对话者；受黑格尔(科耶夫)、马克思和海德格尔影响",
+   life:"巴黎中产天主教家庭。索邦大学数学和哲学。1929年与萨特结识。1949年《第二性》被梵蒂冈列为禁书。与萨特创办《现代》杂志。晚年投身女权运动。",
+   ideas:"'女人不是天生的，而是后天成为的'；女性作为绝对的他者；内在性vs超越性；情境中的自由(对萨特自由观的发展)；身体既是处境也是自由的载体",
+   events:"与萨特相遇(她哲学教师资格考第二名)；《第二性》全球震撼+被禁；与美国作家阿尔格伦跨国恋情；1970年代投身法国妇女解放运动",
+   works:"《模棱两可的伦理学》(1947)；《第二性》(1949)；《名士风流》(1954,龚古尔奖)；《老年》(1970)",
+   papers:"《第二性》导言——'女人是他者'核心论证；第二卷'生活经验'；《模棱两可的伦理学》第三章",
+   evolution:"早期小说→《模棱两可的伦理学》存在主义伦理→《第二性》存在主义方法应用于女性→《老年》处境分析"},
+
+  {id:"althusser",name:"阿尔都塞 Althusser",years:"1918–1990",school:"marxism",century:1900,
+   teachers:"巴黎高师；受巴什拉科学认识论、拉康和列维-斯特劳斯结构主义影响",
+   life:"阿尔及利亚法国侨民。巴黎高师教师。二战被俘五年。1960年代以《保卫马克思》成名(地下办公室)。1980年因精神疾病掐死妻子不被审判。在医院度过余生。",
+   ideas:"认识论断裂：青年'人道主义'马克思vs成熟'科学'马克思；症候阅读(symptomatic reading)；多元决定的矛盾；意识形态国家机器(ISA)——将个体'质询'为主体",
+   events:"战俘营五年——抑郁症开始；巴黎高师阿尔都塞主义影响福柯、德里达等；1968年五月风暴(他正住院)；1980年杀死妻子——最惨烈的个人悲剧",
+   works:"《保卫马克思》(1965)；《读资本论》(1965)；《意识形态与意识形态国家机器》(1970论文)",
+   papers:"《意识形态与意识形态国家机器》(1970)——最具影响力独立论文；《保卫马克思》'矛盾与多元决定'；《读资本论》症候阅读法",
+   evolution:"早期天主教+黑格尔→《保卫马克思》认识论断裂→《读资本论》症候阅读→《意识形态》拉康式主体+质询→遗著心理与理论"},
+
+  {id:"lyotard",name:"利奥塔 Lyotard",years:"1924–1998",school:"poststructuralism",century:1900,
+   teachers:"早年参与'社会主义或野蛮'团体；受康德(崇高分析)和维特根斯坦(语言游戏)深刻影响",
+   life:"巴黎大学哲学。参与1968年五月风暴。1971年获国家博士。任教于巴黎第八大学和美国多所大学。魁北克政府委托报告产生了《后现代状况》。",
+   ideas:"后现代状况：'对元叙事的怀疑'；语言游戏的不可通约性；异识(différend):当事方因缺乏共同判决规则而无法解决的冲突；后现代艺术和思想的任务是呈现不可呈现者",
+   events:"参与'社会主义或野蛮'；魁北克政府委托报告→《后现代状况》；五月风暴(1968)",
+   works:"《话语，图像》(1971)；《后现代状况：关于知识的报告》(1979)；《异识》(1983)",
+   papers:"《后现代状况》第九-十章效能方式合法化批判；《异识》'异识记号'章节",
+   evolution:"现象学+马克思主义→1970年代力比多→《后现代状况》元叙事+后现代→《异识》崇高+语言游戏→异识理论巅峰"},
+
+  {id:"deleuze",name:"德勒兹 Deleuze",years:"1925–1995",school:"poststructuralism",century:1900,
+   teachers:"受斯宾诺莎(内在性)、尼采(肯定性差异)、柏格森(绵延+虚拟)和休谟(经验主义)影响最深",
+   life:"巴黎中产家庭。索邦大学毕业。1969年任巴黎第八大学教授至1987年退休。与瓜塔里的合作将思想大众化。长期严重肺病，1995年从公寓跳窗自杀。",
+   ideas:"差异本身(difference in itself)——差异比同一性更原初；虚拟(virtual)——完全真实的差异场域(因柏格森)；欲望生产——欲望不是缺乏而是积极生产力；块茎(rhizome)vs树状思维；轭域化/解域化；内在性平面",
+   events:"与瓜塔里相遇(1969)——哲学-精神分析跨界合作；五月风暴后巴黎第八大学教学；1995年因肺病自杀",
+   works:"《尼采与哲学》(1962)；《差异与重复》(1969)；《反俄狄浦斯》(1972,与瓜塔里)；《千高原》(1980,与瓜塔里)",
+   papers:"《差异与重复》第一章'差异本身'；《千高原》导论'块茎'；《附言:论控制社会》(1990)",
+   evolution:"1950-60年代哲学史解读(休谟→尼采→柏格森→斯宾诺莎)→《差异与重复》差异本体论→《反俄狄浦斯》→《千高原》块茎-装配→电影研究"},
+
+  {id:"foucault",name:"福柯 Foucault",years:"1926–1984",school:"poststructuralism",century:1900,
+   teachers:"师从伊波利特(黑格尔)和康吉扬(科学史)；受尼采谱系学、海德格尔和巴塔耶深刻影响",
+   life:"医生家庭。巴黎高师期间严重抑郁。1970年任法兰西学院教授至去世。创建监狱信息小组。加州经验影响晚期。1984年死于艾滋病——法国最早公开之AIDS死亡。",
+   ideas:"知识考古学——知识按知识型(episteme)不连续断裂；权力-知识——权力是生产性的；全景敞视主义(Panopticism)；生命权力(biopower)；治理术(governmentality)；自我技术",
+   events:"巴黎高师精神危机；五月风暴(当时不在巴黎)；法兰西学院教席(1970-84)；加州经验→影响《性史》二、三卷；死于AIDS",
+   works:"《词与物》(1966)；《知识考古学》(1969)；《规训与惩罚》(1975)；《性史》三卷(1976-84)",
+   papers:"《词与物》第九章'人之死'；《规训与惩罚》'全景敞视主义'；《什么是启蒙？》(1984)；《什么是作者？》(1969)",
+   evolution:"考古学时期(《疯癫》《词与物》)→谱系学时期(《规训与惩罚》权力-知识)→《性史》卷I生命权力→伦理转向(卷II-III自我技术)"},
+
+  {id:"baudrillard",name:"鲍德里亚 Baudrillard",years:"1929–2007",school:"poststructuralism",century:1900,
+   teachers:"师从亨利·列斐伏尔；受巴特符号学、莫斯礼物交换和德波景观社会影响",
+   life:"公务员家庭。巴黎南泰尔大学讲师。1960-70年代将马克思与符号学结合。后抛弃马克思主义发展拟像理论。晚年以'海湾战争未曾发生'等挑衅宣言闻名。",
+   ideas:"拟像三阶段(仿冒→生产→模拟)；超真实(Hyperreality)——模型取代真实(迪士尼比'真实的美国'更美国)；符号政治经济学；象征交换；'海湾战争未曾发生'",
+   events:"师从列斐伏尔获博士；南泰尔大学——五月风暴发源地；'海湾战争未曾发生'系列引发全球争议",
+   works:"《消费社会》(1970)；《象征交换与死亡》(1976)；《拟像与仿真》(1981)；《美国》(1986)",
+   papers:"《象征交换与死亡》第二章'拟像的序列'；《拟像与仿真》'拟像的先行'；《海湾战争未曾发生》",
+   evolution:"马克思主义+符号学→《象征交换与死亡》(分水岭)→《拟像与仿真》超真实→1990年代后媒体事件挑衅分析"},
+
+  {id:"derrida",name:"德里达 Derrida",years:"1930–2004",school:"poststructuralism",century:1900,
+   teachers:"受胡塞尔、海德格尔和尼采三者综合；巴黎高师受伊波利特和阿尔都塞影响",
+   life:"阿尔及利亚犹太家庭，在反犹氛围中成长。巴黎高师教师。1966年约翰·霍普金斯讲演一夜成名。任教于巴黎高师、EHESS及耶鲁等美国大学。74岁死于胰腺癌。",
+   ideas:"延异(différance)——意义通过差异和延迟不断滑动；逻各斯中心主义批判；解构——阅读文本内在张力，揭示自我颠覆；在场形而上学批判；补充(supplément)——补充揭示了原物的非完整性",
+   events:"阿尔及利亚反犹童年——影响对同一/差异的关注；1966年约翰·霍普金斯讲演——后结构主义'宣言'；与塞尔的言语行为论争(1977-88)",
+   works:"《论文字学》(1967)；《书写与差异》(1967)；《声音与现象》(1967)；《哲学的边缘》(1972)；《马克思的幽灵》(1993)",
+   papers:"'结构、符号与游戏'(1966)——解构宣言；《论文字学》'书的终结'；《哲学的边缘》'延异'(1968)；'法律的力量'(1990)——解构即正义",
+   evolution:"1962胡塞尔起步→1967三书(文字学+差异+声音)→1970年代哲学边缘→1990年代伦理-政治转向(法律/好客/宽恕/马克思幽灵)"},
+
+  {id:"irigaray",name:"伊里加雷 Irigaray",years:"1930–",school:"poststructuralism",century:1900,
+   teachers:"拉康的学生——受拉康派精神分析训练；受德里达解构和海德格尔影响；因《他者女人的窥镜》被拉康学派开除",
+   life:"比利时出生的法国女性主义者。参加拉康研讨班并在巴黎第八大学任教。1974年博士论文出版后被拉康学派驱逐并失去大学教职。独立发展'性差异'哲学至今。",
+   ideas:"西方哲学/精神分析系统性排斥'女性气质'(女性只作为男性的镜面而非独立他者)；没有中性的唯一主体——主体总是性的；性差异是未被思考的本体论差异；建立女性自身的话语和想象界(流体、双唇触碰)",
+   events:"被拉康学派开除——因批判弗洛伊德和拉康男性中心主义；失去大学教职；持续独立探索",
+   works:"《他者女人的窥镜》(1974)；《这个性并非一个》(1977)；《差异的伦理》(1984)",
+   papers:"《他者女人的窥镜》'弗洛伊德的盲点'；《这个性并非一个》'当我们的双唇说话'打破单一器官模型",
+   evolution:"《窥镜》解构弗洛伊德+西方哲学→《这个性并非一个》正面提出女性欲望→《差异的伦理》两人间的伦理→晚期东方哲学对话"},
+
+  {id:"negri",name:"奈格里 Negri",years:"1933–2023",school:"marxism",century:1900,
+   teachers:"受斯宾诺莎内在性哲学、马克思活劳动概念和德勒兹欲望哲学深刻影响",
+   life:"帕多瓦大学政治哲学教授。1970年代领导意大利工人自治运动。被控参与红色旅(后证明无关)入狱后流亡法国。在巴黎第八大学与德勒兹等共事。1997年自愿返意继续服刑。",
+   ideas:"帝国——去中心化网络式全球主权取代民族国家；诸众(Multitude)——不可化约的差异性的全球生产力量；非物质劳动/认知劳动；构成性权力(potentia)；生命政治生产",
+   events:"意大利1970年代工人自治运动；莫罗案被控入狱；流亡法国与德勒兹等哲学交往；《帝国》(2000)成为全球反全球化运动理论圣经",
+   works:"《野蛮的反常》(1981,斯宾诺莎研究)；《帝国》(2000,与哈特)；《诸众》(2004,与哈特)；《大同世界》(2009,与哈特)",
+   papers:"《帝国》第一部分'世界秩序的政治构造'；《野蛮的反常》对斯宾诺莎《伦理学》的激进解读",
+   evolution:"工人主义分析→斯宾诺莎potentia理论→流亡期写作→《帝国》三部曲(帝国→诸众→大同世界)"},
+
+  {id:"agamben",name:"阿甘本 Agamben",years:"1942–",school:"poststructuralism",century:1900,
+   teachers:"1966-68年参加海德格尔在普罗旺斯的研讨班；受福柯生命权力、本雅明历史哲学和阿伦特极权主义研究深刻影响",
+   life:"罗马大学法学和哲学博士。1966-68年在普罗旺斯参加海德格尔研讨班。编订本雅明意大利文版。威尼斯IUAV大学和巴黎等多所大学教授。2020年因其对COVID-19期间意大利政府措施的批评引争议。",
+   ideas:"神圣人(Homo Sacer)——可被杀但不能被献祭的主体；例外状态即常态('集中营是现代性的范式')；赤裸生命(bare life)；潜能——'不去做'的能力更深刻定义自由；弥赛亚时间；形式-of-生命(forma-di-vita)",
+   events:"亲聆海德格尔在Le Thor的研讨班(1966-68)；编辑本雅明意大利文版；九卷《Homo Sacer》项目(1995-2015)",
+   works:"《来临中的共同体》(1990)；《Homo Sacer》九卷(1995-2015):核心卷:《Homo Sacer》(1995),《例外状态》(2003),《王国与荣耀》(2007)",
+   papers:"《Homo Sacer》序言赤裸生命概念；《例外状态》全文——进入阿甘本的绝佳路径；《什么是装置？》(2006)",
+   evolution:"早期美学-语言学→《来临中的共同体》→Homo Sacer九卷-主权→例外→治理→修道规则→'形式-of-生命'积极构想"},
+
+  {id:"zizek",name:"齐泽克 Žižek",years:"1949–",school:"poststructuralism",century:1900,
+   teachers:"在巴黎受米勒的拉康派精神分析训练；以黑格尔+马克思+拉康为核心三位一体",
+   life:"斯洛文尼亚卢布尔雅那大学博士，巴黎第八大学博士。社会主义南斯拉夫时期因'政治不正确'失去大学职位。1989年《意识形态的崇高客体》出版一举成名。曾参选斯洛文尼亚总统。拍摄电影推广理论。",
+   ideas:"意识形态不是假面具而是社会现实的结构('他们很清楚自己在做什么，但仍然继续做')；穿越幻象；崇高客体——意识形态通过'空位'维系欲望(拉康的对象a)；大他者不存在；行动(Act)——重新定义整个象征坐标的断裂",
+   events:"1989年《意识形态的崇高客体》声名鹊起；1990年参选斯洛文尼亚总统(第四名)；拍摄《变态者电影指南》《意识形态指南》",
+   works:"《意识形态的崇高客体》(1989)；《斜目而视》(1991)；《神经质主体》(1999)；《视差之见》(2006)；《少于无》(2012)",
+   papers:"《意识形态的崇高客体》导论+'马克思发明了征兆'第一章；《斜目而视》导论(拉康通俗入门)",
+   evolution:"翻译评论法国哲学→《崇高客体》拉康+黑格尔+马克思统一→《斜目而视》希区柯克→《视差之见》→《少于无》(对黑格尔最重解读)"}
+];
+
+const links = [
+  // ── 古希腊师承 ──
+  {source:"socrates",target:"plato",type:"teacher"},
+  {source:"plato",target:"aristotle",type:"teacher"},
+
+  // ── 柏拉图 → 近代理性主义 ──
+  {source:"plato",target:"descartes",type:"influence"},
+
+  // ── 亚里士多德 → 现象学 ──
+  {source:"aristotle",target:"heidegger",type:"influence"},
+
+  // ── 笛卡尔体系(大陆理性主义) ──
+  {source:"descartes",target:"spinoza",type:"influence"},
+  {source:"descartes",target:"leibniz",type:"influence"},
+  {source:"descartes",target:"locke",type:"critique"},
+  {source:"descartes",target:"kant",type:"influence"},
+  {source:"spinoza",target:"leibniz",type:"influence"},
+
+  // ── 英国经验主义 ──
+  {source:"hobbes",target:"locke",type:"influence"},
+  {source:"hobbes",target:"rousseau",type:"critique"},
+  {source:"locke",target:"hume",type:"influence"},
+  {source:"locke",target:"rousseau",type:"influence"},
+
+  // ── 启蒙 → 德国观念论 ──
+  {source:"hume",target:"kant",type:"wakened"},
+  {source:"rousseau",target:"kant",type:"influence"},
+  {source:"leibniz",target:"kant",type:"influence"},
+  {source:"kant",target:"hegel",type:"influence"},
+  {source:"kant",target:"schopenhauer",type:"influence"},
+  {source:"spinoza",target:"hegel",type:"influence"},
+
+  // ── 黑格尔的扩散 ──
+  {source:"hegel",target:"marx",type:"critique"},
+  {source:"hegel",target:"kierkegaard",type:"critique"},
+  {source:"hegel",target:"nietzsche",type:"influence"},
+  {source:"hegel",target:"lacan",type:"influence"},
+  {source:"hegel",target:"bataille",type:"influence"},
+  {source:"hegel",target:"sartre",type:"influence"},
+  {source:"hegel",target:"adorno",type:"influence"},
+  {source:"hegel",target:"althusser",type:"influence"},
+  {source:"hegel",target:"derrida",type:"influence"},
+
+  // ── 叔本华 → 尼采、弗洛伊德、维特根斯坦 ──
+  {source:"schopenhauer",target:"nietzsche",type:"influence"},
+  {source:"schopenhauer",target:"freud",type:"influence"},
+  {source:"schopenhauer",target:"wittgenstein",type:"influence"},
+
+  // ── 尼采的辐射 ──
+  {source:"nietzsche",target:"heidegger",type:"influence"},
+  {source:"nietzsche",target:"freud",type:"influence"},
+  {source:"nietzsche",target:"foucault",type:"influence"},
+  {source:"nietzsche",target:"bataille",type:"influence"},
+  {source:"nietzsche",target:"deleuze",type:"influence"},
+  {source:"nietzsche",target:"derrida",type:"influence"},
+
+  // ── 克尔凯郭尔 → 存在主义 ──
+  {source:"kierkegaard",target:"heidegger",type:"influence"},
+  {source:"kierkegaard",target:"sartre",type:"influence"},
+
+  // ── 现象学运动 ──
+  {source:"husserl",target:"heidegger",type:"teacher"},
+  {source:"husserl",target:"sartre",type:"influence"},
+  {source:"husserl",target:"merleauponty",type:"influence"},
+  {source:"husserl",target:"levinas",type:"influence"},
+  {source:"husserl",target:"derrida",type:"influence"},
+
+  // ── 海德格尔的辐射 ──
+  {source:"heidegger",target:"sartre",type:"influence"},
+  {source:"heidegger",target:"levinas",type:"influence"},
+  {source:"heidegger",target:"foucault",type:"influence"},
+  {source:"heidegger",target:"derrida",type:"critique"},
+  {source:"heidegger",target:"agamben",type:"influence"},
+
+  // ── 马克思主义谱系 ──
+  {source:"rousseau",target:"marx",type:"influence"},
+  {source:"marx",target:"adorno",type:"influence"},
+  {source:"marx",target:"benjamin",type:"influence"},
+  {source:"marx",target:"sartre",type:"influence"},
+  {source:"marx",target:"althusser",type:"influence"},
+  {source:"marx",target:"baudrillard",type:"influence"},
+  {source:"marx",target:"negri",type:"influence"},
+
+  // ── 法兰克福学派 ──
+  {source:"benjamin",target:"adorno",type:"influence"},
+  {source:"freud",target:"adorno",type:"influence"},
+
+  // ── 精神分析谱系 ──
+  {source:"freud",target:"lacan",type:"influence"},
+  {source:"lacan",target:"althusser",type:"influence"},
+  {source:"lacan",target:"zizek",type:"influence"},
+  {source:"lacan",target:"irigaray",type:"critique"},
+
+  // ── 法国存在主义 ──
+  {source:"sartre",target:"beauvoir",type:"influence"},
+
+  // ── 后结构主义网络 ──
+  {source:"bergson",target:"deleuze",type:"influence"},
+  {source:"spinoza",target:"deleuze",type:"influence"},
+  {source:"bataille",target:"foucault",type:"influence"},
+  {source:"bataille",target:"baudrillard",type:"influence"},
+  {source:"foucault",target:"deleuze",type:"influence"},
+  {source:"deleuze",target:"foucault",type:"influence"},
+  {source:"foucault",target:"agamben",type:"influence"},
+
+  // ── 意大利自主主义 ──
+  {source:"spinoza",target:"negri",type:"influence"},
+  {source:"deleuze",target:"negri",type:"influence"},
+
+  // ── 康德 → 福柯 ──
+  {source:"kant",target:"foucault",type:"influence"},
+
+  // ── 利奥塔: 康德崇高 + 维特根斯坦语言游戏 ──
+  {source:"kant",target:"lyotard",type:"influence"},
+  {source:"wittgenstein",target:"lyotard",type:"influence"},
+
+  // ── 齐泽克三位一体(补充:黑格尔→齐泽克) ──
+  {source:"hegel",target:"zizek",type:"influence"},
+  {source:"marx",target:"zizek",type:"influence"},
+];
+
+// ========== COLOR MAP ==========
+const schoolColors = {
+  ancient: "#ffd700",
+  rationalism: "#ff6b6b",
+  empiricism: "#4ecdc4",
+  idealism: "#a29bfe",
+  existentialism: "#74b9ff",
+  marxism: "#fd79a8",
+  psychoanalysis: "#e17055",
+  poststructuralism: "#00cec9"
+};
+
+const schoolNames = {
+  ancient:"古希腊/古典", rationalism:"大陆理性主义", empiricism:"英国经验主义",
+  idealism:"德国观念论", existentialism:"存在主义/现象学", marxism:"马克思主义/批判理论",
+  psychoanalysis:"精神分析", poststructuralism:"后结构主义/解构"
+};
+
+// D3 SETUP
+const container = document.getElementById("graph-container");
+const W = container.clientWidth || window.innerWidth - 300;
+const H = container.clientHeight || window.innerHeight;
+
+const svg = d3.select("#graph-container").append("svg")
+  .attr("viewBox", [0, 0, W, H]);
+
+const g = svg.append("g");
+
+// Zoom
+const zoom = d3.zoom()
+  .scaleExtent([0.15, 5])
+  .on("zoom", (event) => {
+    g.attr("transform", event.transform);
+    updateLabelPositions(event.transform);
+  });
+svg.call(zoom);
+
+let currentTransform = d3.zoomIdentity;
+
+function updateLabelPositions(transform) {
+  currentTransform = transform || d3.zoomIdentity;
+  labels.style("left", function(d) {
+    return (d.x * currentTransform.k + currentTransform.x) + "px";
+  }).style("top", function(d) {
+    return (d.y * currentTransform.k + currentTransform.y) + "px";
+  }).style("transform", `translate(-50%, ${12 * currentTransform.k}px) scale(${Math.max(0.6, currentTransform.k)})`);
+}
+
+// Zoom buttons
+d3.select("#zoom-in").on("click", () => svg.transition().duration(300).call(zoom.scaleBy, 1.4));
+d3.select("#zoom-out").on("click", () => svg.transition().duration(300).call(zoom.scaleBy, 0.7));
+d3.select("#zoom-reset").on("click", () => svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity));
+
+// FORCE SIMULATION
+const nodes = philosophers.map(d => ({...d, x: W/2 + (d.century+500)*2.2, y: H/2}));
+const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+const edges = links.map(l => ({
+  source: nodeMap.get(l.source) || l.source,
+  target: nodeMap.get(l.target) || l.target,
+  type: l.type
+}));
+
+const simulation = d3.forceSimulation(nodes)
+  .force("link", d3.forceLink(edges).id(d => d.id).distance(120).strength(0.5))
+  .force("charge", d3.forceManyBody().strength(-400))
+  .force("center", d3.forceCenter(W/2, H/2))
+  .force("x", d3.forceX(d => W*0.15 + ((d.century+500)/2400)*W*0.7).strength(0.15))
+  .force("collision", d3.forceCollide().radius(25));
+
+// DRAW
+const link = g.append("g").selectAll("line")
+  .data(edges).join("line")
+  .attr("class", "link")
+  .attr("stroke-dasharray", d => d.type==="critique"?"4,3":null)
+  .attr("stroke", d => d.type==="critique"?"#ff6b6b":null);
+
+const node = g.append("g").selectAll("g")
+  .data(nodes).join("g")
+  .attr("class", "node")
+  .call(d3.drag()
+    .on("start", (e,d) => { if(!e.active) simulation.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; })
+    .on("drag", (e,d) => { d.fx=e.x; d.fy=e.y; })
+    .on("end", (e,d) => { if(!e.active) simulation.alphaTarget(0); d.fx=null; d.fy=null; }));
+
+const nodeRadius = d => 6 + Math.min(d.name.length*0.3, 10);
+
+node.append("circle")
+  .attr("r", d => nodeRadius(d))
+  .attr("fill", d => schoolColors[d.school])
+  .attr("stroke", "#fff")
+  .attr("stroke-width", 1)
+  .attr("opacity", 0.85);
+
+// ===== HTML LABELS (absolutely positioned divs, bypass SVG text issues) =====
+const labelsContainer = d3.select("#main").append("div")
+  .attr("id", "labels-layer")
+  .style("position", "absolute")
+  .style("top", "0")
+  .style("left", "0")
+  .style("width", "100%")
+  .style("height", "100%")
+  .style("pointer-events", "none")
+  .style("z-index", "5");
+
+const labels = labelsContainer.selectAll("div")
+  .data(nodes).join("div")
+  .attr("class", "node-label")
+  .text(d => d.name.split(" ")[0]);
+
+// ========== INTERACTION ==========
+const tooltip = d3.select("#tooltip");
+
+node.on("mouseenter", (event, d) => {
+  tooltip.style("display","block")
+    .html(`<h3>${d.name}</h3>
+      <p>📅 ${d.years}</p>
+      <p>🏫 ${schoolNames[d.school]}</p>
+      <p style="font-size:0.75em;margin-top:4px;color:#aaa;">${d.ideas.substring(0,100)}...</p>
+      <p style="font-size:0.7em;color:#ffd700;margin-top:4px;">点击查看详情 →</p>`);
+}).on("mousemove", (event) => {
+  tooltip.style("left", (event.offsetX+15)+"px").style("top", (event.offsetY-10)+"px");
+}).on("mouseleave", () => tooltip.style("display","none"));
+
+node.on("click", (event, d) => showModal(d));
+
+// ========== MODAL ==========
+function showModal(d) {
+  const content = document.getElementById("modal-content");
+  content.innerHTML = `
+    <h2>${d.name}</h2>
+    <div class="years">📅 ${d.years} &nbsp;|&nbsp; 🏫 ${schoolNames[d.school]}</div>
+    <div class="section"><h4>师承</h4><p>${d.teachers}</p></div>
+    <div class="section"><h4>生平</h4><p>${d.life}</p></div>
+    <div class="section"><h4>核心思想</h4><p>${d.ideas}</p></div>
+    <div class="section"><h4>有影响的事件</h4><p>${d.events}</p></div>
+    <div class="section"><h4>代表作</h4><p>${d.works}</p></div>
+    <div class="section"><h4>关键论文/章节</h4><p>${d.papers}</p></div>
+    <div class="section"><h4>思想演化脉络</h4><p>${d.evolution}</p></div>
+    <div style="margin-top:12px"><span class="tag" style="background:${schoolColors[d.school]}33;color:${schoolColors[d.school]}">${schoolNames[d.school]}</span></div>
+  `;
+  document.getElementById("modal-overlay").classList.add("show");
+}
+
+document.getElementById("modal-close").addEventListener("click", () => {
+  document.getElementById("modal-overlay").classList.remove("show");
+});
+document.getElementById("modal-overlay").addEventListener("click", (e) => {
+  if (e.target === document.getElementById("modal-overlay"))
+    document.getElementById("modal-overlay").classList.remove("show");
+});
+
+// ========== SEARCH & FILTER ==========
+function updateFilters() {
+  const searchTerm = document.getElementById("search").value.toLowerCase();
+  const schoolFilter = document.getElementById("school-select").value;
+
+  node.each(function(d) {
+    const nameMatch = d.name.toLowerCase().includes(searchTerm);
+    const schoolMatch = schoolFilter==="all" || d.school===schoolFilter;
+    d3.select(this).classed("dimmed", !nameMatch || !schoolMatch);
+  });
+  labels.each(function(d) {
+    const nameMatch = d.name.toLowerCase().includes(searchTerm);
+    const schoolMatch = schoolFilter==="all" || d.school===schoolFilter;
+    d3.select(this).classed("dimmed", !nameMatch || !schoolMatch);
+  });
+  link.each(function(d) {
+    const s = typeof d.source==="object"?d.source:d.source;
+    const t = typeof d.target==="object"?d.target:d.target;
+    const searchTerm = document.getElementById("search").value.toLowerCase();
+    const schoolFilter = document.getElementById("school-select").value;
+    const sOk = s.name&&s.name.toLowerCase().includes(searchTerm) && (schoolFilter==="all"||s.school===schoolFilter);
+    const tOk = t.name&&t.name.toLowerCase().includes(searchTerm) && (schoolFilter==="all"||t.school===schoolFilter);
+    d3.select(this).classed("dimmed", !sOk||!tOk);
+  });
+  document.getElementById("node-count").textContent =
+    nodes.filter(n => { return !d3.select(node.nodes()[nodes.indexOf(n)]).classed("dimmed"); }).length;
+}
+
+document.getElementById("search").addEventListener("input", updateFilters);
+document.getElementById("school-select").addEventListener("change", updateFilters);
+
+// Timeline slider
+const yearMin = document.getElementById("year-min");
+const yearLabel = document.getElementById("year-label");
+yearMin.addEventListener("input", () => {
+  const minYear = +yearMin.value;
+  yearLabel.textContent = `${Math.abs(minYear)} ${minYear<0?'BC':'AD'} — 1950 AD`;
+  node.each(function(d) { d3.select(this).classed("dimmed", d.century < minYear); });
+  labels.each(function(d) { d3.select(this).classed("dimmed", d.century < minYear); });
+  link.each(function(d) {
+    const s = typeof d.source==="object"?d.source:d.source;
+    const t = typeof d.target==="object"?d.target:d.target;
+    d3.select(this).classed("dimmed", s&&s.century<minYear || t&&t.century<minYear);
+  });
+});
+
+// ========== SIMULATION TICK ==========
+simulation.on("tick", () => {
+  link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+      .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+  node.attr("transform", d => `translate(${d.x},${d.y})`);
+
+  // Position HTML labels over SVG nodes
+  labels.style("left", function(d) {
+    return (d.x * currentTransform.k + currentTransform.x) + "px";
+  }).style("top", function(d) {
+    return (d.y * currentTransform.k + currentTransform.y) + "px";
+  });
+});
+
+// ========== LEGEND ==========
+const legend = d3.select("#legend");
+legend.html(Object.entries(schoolNames).map(([k,v]) =>
+  `<div><span class="dot" style="background:${schoolColors[k]}"></span>${v}</div>`
+).join(""));
+
+// ========== KEYBOARD ==========
+document.addEventListener("keydown", e => {
+  if (e.key==="Escape") document.getElementById("modal-overlay").classList.remove("show");
+});
+
+// Set initial label positions after a short delay (once layout stabilizes)
+setTimeout(() => {
+  labels.style("left", function(d) { return d.x + "px"; })
+       .style("top", function(d) { return d.y + "px"; });
+}, 2000);
+</script>
+</body>
+</html>

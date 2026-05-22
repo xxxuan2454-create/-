@@ -24,52 +24,49 @@ def show():
     # ── 选股 ──
     st.markdown("### 1️⃣ 选择股票")
 
-    # 检查是否有从搜索页联动过来的股票
-    active = st.session_state.get("active_stock")
-    if active:
-        linked_name = active.get("name", "")
-        linked_code = active.get("code", "")
-    else:
-        linked_name = ""
-        linked_code = ""
+    linked = st.session_state.get("active_stock")
 
     col1, col2 = st.columns([3, 1])
 
     with col1:
-        if linked_name:
-            # 显示联动股票，提供清除按钮
-            st.success(f"📌 已从搜索页联动: **{linked_name}** ({linked_code})")
-            selected_name = linked_name
-            selected_code = linked_code
-            if st.button("✕ 取消联动，重新搜索", key="clear_active"):
-                st.session_state.pop("active_stock", None)
-                st.rerun()
-        else:
-            # 搜索输入框
-            search_query = st.text_input(
-                "搜索股票名称或代码",
-                placeholder="输入关键词搜索...（如 茅台 / 宁德 / 600519）",
-                key="div_search_input",
-            )
-            if search_query:
-                from data.stock_list import search_all_stocks
-                results = search_all_stocks(search_query, limit=15)
-                if results:
-                    stock_options = {r["name"]: r["code"] for r in results}
-                    selected_name = st.selectbox(
-                        "选择股票",
-                        options=list(stock_options.keys()),
-                        key="div_stock_select",
-                    )
-                    selected_code = stock_options[selected_name]
-                else:
-                    st.warning("无匹配股票")
-                    selected_name = list(STOCK_POOL.keys())[0]
-                    selected_code = STOCK_POOL[selected_name]
+        search_query = st.text_input(
+            "搜索股票名称或代码",
+            placeholder="输入关键词搜索...（如 茅台 / 宁德 / 600519）",
+            key="div_search_input",
+        )
+
+        if search_query:
+            from data.stock_list import search_all_stocks
+            results = search_all_stocks(search_query, limit=15)
+            if results:
+                stock_options = {r["name"]: r["code"] for r in results}
+                # 联动股票如果在结果中，默认选中它
+                default_idx = 0
+                if linked:
+                    for i, r in enumerate(results):
+                        if r["code"] == linked["code"]:
+                            default_idx = i
+                            break
+                selected_name = st.selectbox(
+                    "选择股票",
+                    options=list(stock_options.keys()),
+                    index=default_idx,
+                    key="div_stock_select",
+                )
+                selected_code = stock_options[selected_name]
             else:
-                st.info("输入关键词搜索，或前往「🔎 股票搜索」页面选择股票后自动联动")
+                st.warning("无匹配股票")
                 selected_name = list(STOCK_POOL.keys())[0]
                 selected_code = STOCK_POOL[selected_name]
+        else:
+            if linked:
+                selected_name = linked["name"]
+                selected_code = linked["code"]
+                st.info(f"📌 从其他页面联动: **{linked['name']}** ({linked['code']})，上方搜索框可随时更换股票")
+            else:
+                selected_name = list(STOCK_POOL.keys())[0]
+                selected_code = STOCK_POOL[selected_name]
+                st.info("输入股票名称或代码搜索，选中后将自动联动到「🤖 多智能体分析」页面")
 
     with col2:
         use_random = st.checkbox("随机选股", value=False, key="random_stock")
@@ -81,7 +78,11 @@ def show():
         selected_code = STOCK_POOL[selected_name]
         st.info(f"随机选中: **{selected_name}**")
 
+    # ── 联动到智能分析 ──
+    st.session_state["active_stock"] = {"name": selected_name, "code": selected_code}
+
     st.markdown(f"## 📌 当前占卜股票: **{selected_name}** ({selected_code})")
+    st.caption("🔗 已联动到「🤖 多智能体分析」，切换侧边栏即可直接分析此股")
 
     # ── 显示股票信息 ──
     # 获取当前股价

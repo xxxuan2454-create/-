@@ -23,11 +23,11 @@ from db.models import init_db
 from ui.auth import show as auth_page
 from ui.dashboard import show as dashboard
 from ui.screener import show as screener
-from ui.search import show as search
 from ui.divination import show as divination
 from ui.history import show as history
 from ui.multi_agent import show as multi_agent
 from ui.backtest import show as backtest
+from ui.philosophers import show as philosophers
 
 
 def _init_search_db():
@@ -75,12 +75,12 @@ def main():
             "导航",
             options=[
                 "📊 仪表盘",
-                "🔎 股票搜索",
                 "🔍 选股筛选",
                 "🤖 多智能体分析",
                 "🔮 六爻占卜",
                 "⚡ 策略回测",
                 "📋 历史记录",
+                "🏛 哲学家网络",
             ],
             index=0,
         )
@@ -90,10 +90,8 @@ def main():
 
         if page == "📊 仪表盘":
             st.caption("查看大盘概览、今日推荐、预测统计")
-        elif page == "🔎 股票搜索":
-            st.caption("按名称或代码搜索任意A股，查看详情")
         elif page == "🔍 选股筛选":
-            st.caption("Sequoia-X技术面 + qstock多因子评分")
+            st.caption("Momentum-X动量趋势 + Sequoia-X技术面 + qstock多因子评分")
         elif page == "🤖 多智能体分析":
             st.caption("AI多角色分析: 技术/基本面/情绪/辩论")
         elif page == "🔮 六爻占卜":
@@ -102,9 +100,12 @@ def main():
             st.caption("均线/RSI/布林带 交易策略回测")
         elif page == "📋 历史记录":
             st.caption("预测记录、准确率统计、手动回测")
+        elif page == "🏛 哲学家网络":
+            st.caption("40位西方哲学家的交互式全景网络图")
 
         st.markdown("---")
         st.markdown("### ⚙️ 集成来源")
+        st.caption("- Momentum-X: 6大动量趋势策略")
         st.caption("- Sequoia-X: 7大技术策略")
         st.caption("- qstock: RPS多因子评分")
         st.caption("- TradingAgents: 多智能体")
@@ -119,8 +120,6 @@ def main():
     # 路由到对应页面
     if page == "📊 仪表盘":
         dashboard()
-    elif page == "🔎 股票搜索":
-        search()
     elif page == "🔍 选股筛选":
         screener()
     elif page == "🤖 多智能体分析":
@@ -131,6 +130,8 @@ def main():
         backtest()
     elif page == "📋 历史记录":
         history()
+    elif page == "🏛 哲学家网络":
+        philosophers()
 
 
 if __name__ == "__main__":

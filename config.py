@@ -107,6 +107,22 @@ SEQUOIA_PARAMS = {
     "rps_window": 120, "rps_threshold": 90,
 }
 
+# Momentum-X 动量趋势参数
+MOMENTUM_PARAMS = {
+    # BullishAlignment - 均线多头排列
+    "ba_max_pct_above_ma20": 0.15,
+    # VolumeBreakout - 放量突破平台
+    "vb_range_days": 20, "vb_range_max": 0.20, "vb_volume_ratio": 1.5,
+    # TrendPullback - 趋势回调支撑
+    "tp_vol_shrink": 0.7,
+    # MACDZeroCross - MACD零轴金叉
+    "macd_adx_min": 18,
+    # BBSqueezeBreakout - 布林收口突破
+    "bb_squeeze_days": 10, "bb_vol_ratio": 1.3,
+    # RSIStrength - RSI强势动量
+    "rsi_low": 55, "rsi_high": 72, "rsi_rising_days": 3, "mfi_min": 50,
+}
+
 # AI质量检测参数
 QUALITY_MIN_LENGTH = 100
 QUALITY_MAX_RETRIES = 3

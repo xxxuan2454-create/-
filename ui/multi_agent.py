@@ -33,39 +33,51 @@ def show():
     # ── 选股 ──
     st.markdown("### 选择分析标的")
 
-    active = st.session_state.get("active_stock")
-    if active:
-        linked_name = active.get("name", "")
-        linked_code = active.get("code", "")
-        selected_name = linked_name
-        selected_code = linked_code
-        if st.button("✕ 取消联动", key="clear_ma_active"):
-            st.session_state.pop("active_stock", None)
-            st.rerun()
-    else:
-        search_query = st.text_input(
-            "搜索股票名称或代码",
-            placeholder="输入关键词搜索...",
-            key="ma_search_input",
-        )
-        if search_query:
-            from data.stock_list import search_all_stocks
-            results = search_all_stocks(search_query, limit=15)
-            if results:
-                stock_options = {r["name"]: r["code"] for r in results}
-                selected_name = st.selectbox("选择股票", options=list(stock_options.keys()), key="ma_stock_select")
-                selected_code = stock_options[selected_name]
-            else:
-                st.warning("无匹配股票")
-                selected_name = list(STOCK_POOL.keys())[0]
-                selected_code = STOCK_POOL[selected_name]
+    linked = st.session_state.get("active_stock")
+
+    search_query = st.text_input(
+        "搜索股票名称或代码",
+        placeholder="输入关键词搜索...",
+        key="ma_search_input",
+    )
+
+    if search_query:
+        from data.stock_list import search_all_stocks
+        results = search_all_stocks(search_query, limit=15)
+        if results:
+            stock_options = {r["name"]: r["code"] for r in results}
+            # 联动股票如果在结果中，默认选中它
+            default_idx = 0
+            if linked:
+                for i, r in enumerate(results):
+                    if r["code"] == linked["code"]:
+                        default_idx = i
+                        break
+            selected_name = st.selectbox(
+                "选择股票", options=list(stock_options.keys()),
+                index=default_idx, key="ma_stock_select",
+            )
+            selected_code = stock_options[selected_name]
         else:
-            st.info("输入关键词搜索，或前往「🔎 股票搜索」页面选择股票后自动联动")
+            st.warning("无匹配股票")
             selected_name = list(STOCK_POOL.keys())[0]
             selected_code = STOCK_POOL[selected_name]
+    else:
+        if linked:
+            selected_name = linked["name"]
+            selected_code = linked["code"]
+            st.info(f"📌 从其他页面联动: **{linked['name']}** ({linked['code']})，上方搜索框可随时更换股票")
+        else:
+            selected_name = list(STOCK_POOL.keys())[0]
+            selected_code = STOCK_POOL[selected_name]
+            st.info("输入股票名称或代码搜索，选中后将自动联动到「🔮 六爻占卜」页面")
+
+    # ── 联动到六爻占卜 ──
+    st.session_state["active_stock"] = {"name": selected_name, "code": selected_code}
 
     # ── 当前分析股票 ──
     st.markdown(f"## 📌 当前分析股票: **{selected_name}** ({selected_code})")
+    st.caption("🔗 已联动到「🔮 六爻占卜」，切换侧边栏即可直接起卦")
 
     # ── 技术面预览 ──
     st.markdown("---")
