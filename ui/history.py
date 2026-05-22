@@ -66,6 +66,7 @@ def show():
             "本卦": p.get("zhu_gua_name", ""),
             "变卦": p.get("bian_gua_name", "") or "-",
             "AI预测": p.get("ai_prediction", ""),
+            "AI建议": _extract_suggestion(p.get("ai_analysis") or ""),
             "置信度": f"{p.get('ai_confidence', 0) * 100:.0f}%" if p.get("ai_confidence") else "-",
             "预测价格": p.get("predicted_price", 0),
             "实际涨跌": p.get("actual_result", "待验证"),
@@ -227,10 +228,38 @@ def _show_hexagram_detail(selected: dict) -> None:
         else:
             st.markdown("#### 无变卦")
 
-    gua_ci = zhu_full.get("guaCi", "")
-    if gua_ci:
-        with st.expander("📖 卦辞"):
-            st.markdown(gua_ci[:500])
+    # ── AI 预测报告 ──
+    ai_analysis = selected.get("ai_analysis") or ""
+    if ai_analysis:
+        st.markdown("---")
+        st.markdown("### 🤖 AI 解卦预测")
+        st.markdown(ai_analysis)
+    else:
+        gua_ci = zhu_full.get("guaCi", "")
+        if gua_ci:
+            with st.expander("📖 卦辞"):
+                st.markdown(gua_ci[:500])
+
+
+def _extract_suggestion(ai_analysis: str) -> str:
+    """从 AI 分析文本中提取「操作建议」"""
+    if not ai_analysis:
+        return ""
+    for line in ai_analysis.split("\n"):
+        line = line.strip()
+        if "操作建议" in line:
+            # 提取冒号后的内容
+            for sep in ["：", ":"]:
+                if sep in line:
+                    suggestion = line.split(sep, 1)[1].strip()
+                    # 去掉 HTML 注释
+                    if "<!--" in suggestion:
+                        suggestion = suggestion.split("<!--")[0].strip()
+                    # 去掉 markdown 加粗标记
+                    suggestion = suggestion.replace("**", "").strip()
+                    return suggestion
+            return line
+    return ""
 
 
 def _reconstruct_all_lines(zhu_full: dict, changing_lines: list[int]) -> tuple[list, list]:
