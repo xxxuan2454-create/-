@@ -43,12 +43,14 @@ def show():
                 stock_options = {r["name"]: r["code"] for r in results}
                 selected_name = st.selectbox("选择股票", options=list(stock_options.keys()), key="bt_stock_select")
                 selected_code = stock_options[selected_name]
+                st.session_state["active_stock"] = {"name": selected_name, "code": selected_code}
                 st.markdown(f"### 📌 {selected_name} ({selected_code})")
+                st.caption("🔗 已联动到「🔮 六爻占卜」和「🤖 多智能体分析」，切换侧边栏即可直接使用")
             else:
                 st.warning("无匹配股票")
                 return
         else:
-            st.info("👆 在上方搜索框输入股票名称或代码开始")
+            st.info("输入股票名称或代码搜索，选中后将自动联动到「🔮 六爻占卜」和「🤖 多智能体分析」页面")
             return
 
     # ── 策略选择 ──

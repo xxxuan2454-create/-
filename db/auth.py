@@ -1,8 +1,10 @@
-"""用户注册与登录"""
+"""用户注册与登录 (Supabase)"""
+
+from __future__ import annotations
 
 import hashlib
 import secrets
-from db.models import get_connection
+from db.supabase_client import get_supabase
 
 
 def _hash_password(password: str, salt: str = "") -> tuple[str, str]:
@@ -23,40 +25,49 @@ def register_user(username: str, password: str) -> tuple[bool, str]:
 
     pw_hash, salt = _hash_password(password)
 
-    conn = get_connection()
-    try:
-        conn.execute(
-            "INSERT INTO users (username, password_hash) VALUES (?, ?)",
-            (username, f"{salt}:{pw_hash}"),
-        )
-        conn.commit()
-        return True, "注册成功"
-    except Exception:
+    # 检查用户名是否已存在
+    existing = (
+        get_supabase()
+        .table("users")
+        .select("id", count="exact")
+        .eq("username", username)
+        .execute()
+    )
+    if existing.count:
         return False, "用户名已存在"
-    finally:
-        conn.close()
+
+    get_supabase().table("users").insert({
+        "username": username,
+        "password_hash": f"{salt}:{pw_hash}",
+    }).execute()
+
+    return True, "注册成功"
 
 
 def login_user(username: str, password: str) -> tuple[int | None, str]:
     """登录验证，返回 (user_id, 消息)"""
     username = username.strip()
 
-    conn = get_connection()
-    row = conn.execute(
-        "SELECT id, password_hash FROM users WHERE username = ?", (username,)
-    ).fetchone()
-    conn.close()
+    resp = (
+        get_supabase()
+        .table("users")
+        .select("id,password_hash")
+        .eq("username", username)
+        .execute()
+    )
+    rows = resp.data or []
 
-    if not row:
+    if not rows:
         return None, "用户名不存在"
 
-    stored = row["password_hash"]
+    row = rows[0]
+    stored = row.get("password_hash", "")
     try:
-        salt, expected_hash = stored.split(":", 1)
+        stored_salt, expected_hash = stored.split(":", 1)
     except ValueError:
         return None, "密码数据损坏"
 
-    actual_hash, _ = _hash_password(password, salt)
+    actual_hash, _ = _hash_password(password, stored_salt)
     if actual_hash == expected_hash:
         return row["id"], "登录成功"
 

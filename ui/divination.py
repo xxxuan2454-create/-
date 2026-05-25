@@ -11,6 +11,7 @@ from divination.predictor import predict_stock
 from divination.yingqi import calculate_yingqi, is_yingqi_expired
 from divination.bagua import BA_GUA
 from data.fetcher import fetch_stock_history, fetch_stock_info
+from data.technical import compute_all_indicators, indicator_summary_text
 from db.store import save_prediction, save_divination_cast, update_ai_prediction, get_halfday_stock_count, get_today_stock_prediction, resolve_stock_daily_conflicts
 from db.models import init_db
 from config import STOCK_POOL
@@ -214,6 +215,13 @@ def show():
 
         # 自动调用AI预测
         if has_api_key():
+            # 获取完整技术指标数据用于AI分析
+            try:
+                inds = compute_all_indicators(selected_code, period="6mo")
+                tech_summary = indicator_summary_text(inds)
+            except Exception:
+                tech_summary = f"近30日价格: {current_price}, 今日涨跌幅: {change_pct}%"
+
             with st.spinner("🤖 AI正在解卦并预测涨跌..."):
                 try:
                     prediction = predict_stock(
@@ -221,7 +229,7 @@ def show():
                         stock_code=selected_code,
                         current_price=current_price,
                         change_pct=change_pct,
-                        technical_summary=f"近30日价格: {current_price}, 今日涨跌幅: {change_pct}%",
+                        technical_summary=tech_summary,
                     )
                     st.session_state["prediction"] = prediction
 

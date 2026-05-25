@@ -1,13 +1,14 @@
-"""预测记录与选股结果 CRUD 操作"""
+"""预测记录与选股结果 CRUD 操作 (Supabase)"""
+
+from __future__ import annotations
 
 import json
-import hashlib
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import pandas as pd
 
-from db.models import get_connection
+from db.supabase_client import get_supabase
 
 
 # ── 预测记录 ──────────────────────────────────────────────────
@@ -32,29 +33,32 @@ def save_prediction(
     user_id: int = 1,
 ) -> int:
     """保存一条预测记录，返回记录ID"""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO predictions (
-            user_id, stock_code, stock_name, zhu_gua_name, zhu_gua_full, bian_gua_name,
-            bian_gua_full, changing_lines, dong_yao_details, ti_yong_analysis,
-            ai_prediction, ai_confidence, ai_analysis, ai_model,
-            predicted_price, target_date, retry_count, yingqi_date
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        user_id, stock_code, stock_name, zhu_gua_name,
-        json.dumps(zhu_gua_full, ensure_ascii=False),
-        bian_gua_name,
-        json.dumps(bian_gua_full, ensure_ascii=False) if bian_gua_full else None,
-        json.dumps(changing_lines),
-        dong_yao_details, ti_yong_analysis,
-        ai_prediction, ai_confidence, ai_analysis, ai_model,
-        predicted_price, date.today().isoformat(), retry_count, yingqi_date,
-    ))
-    conn.commit()
-    rid = cursor.lastrowid
-    conn.close()
-    return rid
+    resp = (
+        get_supabase()
+        .table("predictions")
+        .insert({
+            "user_id": user_id,
+            "stock_code": stock_code,
+            "stock_name": stock_name,
+            "zhu_gua_name": zhu_gua_name,
+            "zhu_gua_full": json.dumps(zhu_gua_full, ensure_ascii=False),
+            "bian_gua_name": bian_gua_name,
+            "bian_gua_full": json.dumps(bian_gua_full, ensure_ascii=False) if bian_gua_full else None,
+            "changing_lines": json.dumps(changing_lines),
+            "dong_yao_details": dong_yao_details,
+            "ti_yong_analysis": ti_yong_analysis,
+            "ai_prediction": ai_prediction,
+            "ai_confidence": ai_confidence,
+            "ai_analysis": ai_analysis,
+            "ai_model": ai_model,
+            "predicted_price": predicted_price,
+            "target_date": date.today().isoformat(),
+            "retry_count": retry_count,
+            "yingqi_date": yingqi_date,
+        })
+        .execute()
+    )
+    return resp.data[0]["id"] if resp.data else 0
 
 
 def get_predictions(
@@ -64,21 +68,20 @@ def get_predictions(
     user_id: int = 1,
 ) -> list[dict]:
     """查询预测记录"""
-    conn = get_connection()
-    cursor = conn.cursor()
+    query = (
+        get_supabase()
+        .table("predictions")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("predicted_at", desc=True)
+        .limit(limit)
+    )
     if stock_code:
-        cursor.execute(
-            "SELECT * FROM predictions WHERE user_id = ? AND stock_code = ? ORDER BY predicted_at DESC LIMIT ? OFFSET ?",
-            (user_id, stock_code, limit, offset),
-        )
-    else:
-        cursor.execute(
-            "SELECT * FROM predictions WHERE user_id = ? ORDER BY predicted_at DESC LIMIT ? OFFSET ?",
-            (user_id, limit, offset),
-        )
-    rows = [dict(r) for r in cursor.fetchall()]
-    conn.close()
-    return rows
+        query = query.eq("stock_code", stock_code)
+    if offset:
+        query = query.offset(offset)
+    resp = query.execute()
+    return resp.data or []
 
 
 def save_divination_cast(
@@ -91,26 +94,27 @@ def save_divination_cast(
     user_id: int = 1,
 ) -> int:
     """仅保存卦象 (AI预测前)，返回记录ID供后续更新"""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO predictions (
-            user_id, stock_code, stock_name, zhu_gua_name, zhu_gua_full, bian_gua_name,
-            bian_gua_full, changing_lines, dong_yao_details, ti_yong_analysis,
-            predicted_price, target_date, yingqi_date
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        user_id, stock_code, stock_name, zhu_gua_name,
-        json.dumps(zhu_gua_full, ensure_ascii=False),
-        bian_gua_name,
-        json.dumps(bian_gua_full, ensure_ascii=False) if bian_gua_full else None,
-        json.dumps(changing_lines), dong_yao_details, ti_yong_analysis,
-        predicted_price, date.today().isoformat(), yingqi_date,
-    ))
-    conn.commit()
-    rid = cursor.lastrowid
-    conn.close()
-    return rid
+    resp = (
+        get_supabase()
+        .table("predictions")
+        .insert({
+            "user_id": user_id,
+            "stock_code": stock_code,
+            "stock_name": stock_name,
+            "zhu_gua_name": zhu_gua_name,
+            "zhu_gua_full": json.dumps(zhu_gua_full, ensure_ascii=False),
+            "bian_gua_name": bian_gua_name,
+            "bian_gua_full": json.dumps(bian_gua_full, ensure_ascii=False) if bian_gua_full else None,
+            "changing_lines": json.dumps(changing_lines),
+            "dong_yao_details": dong_yao_details,
+            "ti_yong_analysis": ti_yong_analysis,
+            "predicted_price": predicted_price,
+            "target_date": date.today().isoformat(),
+            "yingqi_date": yingqi_date,
+        })
+        .execute()
+    )
+    return resp.data[0]["id"] if resp.data else 0
 
 
 def update_ai_prediction(
@@ -118,51 +122,58 @@ def update_ai_prediction(
     ai_analysis: str, ai_model: str = "", retry_count: int = 0,
 ) -> None:
     """更新已有卦象记录的AI预测结果"""
-    conn = get_connection()
-    conn.execute("""
-        UPDATE predictions SET
-            ai_prediction = ?, ai_confidence = ?, ai_analysis = ?,
-            ai_model = ?, retry_count = ?,
-            predicted_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-    """, (ai_prediction, ai_confidence, ai_analysis, ai_model, retry_count, prediction_id))
-    conn.commit()
-    conn.close()
+    get_supabase().table("predictions").update({
+        "ai_prediction": ai_prediction,
+        "ai_confidence": ai_confidence,
+        "ai_analysis": ai_analysis,
+        "ai_model": ai_model,
+        "retry_count": retry_count,
+        "predicted_at": datetime.now().isoformat(),
+    }).eq("id", prediction_id).execute()
 
 
 def update_actual_result(prediction_id: int, actual_price: float, actual_change_pct: float) -> None:
     """更新实际结果"""
     actual_result = "涨" if actual_change_pct > 0 else ("跌" if actual_change_pct < 0 else "平")
-    conn = get_connection()
-    conn.execute("""
-        UPDATE predictions SET actual_result=?, actual_price=?, actual_change_pct=?, accuracy_checked=1
-        WHERE id=?
-    """, (actual_result, actual_price, actual_change_pct, prediction_id))
-    conn.commit()
-    conn.close()
+    get_supabase().table("predictions").update({
+        "actual_result": actual_result,
+        "actual_price": actual_price,
+        "actual_change_pct": actual_change_pct,
+        "accuracy_checked": 1,
+    }).eq("id", prediction_id).execute()
 
 
 def get_accuracy_stats(user_id: int = 1) -> dict:
     """获取预测准确率统计"""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) as total FROM predictions WHERE user_id = ?", (user_id,))
-    total = cursor.fetchone()["total"]
+    sb = get_supabase()
+    total_resp = sb.table("predictions").select("*", count="exact").eq("user_id", user_id).execute()
+    total = total_resp.count
 
-    cursor.execute("SELECT COUNT(*) as checked FROM predictions WHERE user_id = ? AND accuracy_checked = 1", (user_id,))
-    checked = cursor.fetchone()["checked"]
+    checked_resp = (
+        sb.table("predictions").select("*", count="exact")
+        .eq("user_id", user_id)
+        .eq("accuracy_checked", 1)
+        .execute()
+    )
+    checked = checked_resp.count
 
-    cursor.execute("""
-        SELECT COUNT(*) as correct FROM predictions
-        WHERE user_id = ?
-        AND accuracy_checked = 1
-        AND ((ai_prediction = '涨' AND actual_result = '涨')
-            OR (ai_prediction = '跌' AND actual_result = '跌')
-            OR (ai_prediction = '平' AND actual_result = '平'))
-    """, (user_id,))
-    correct = cursor.fetchone()["correct"]
+    correct = 0
+    if checked > 0:
+        rows = (
+            sb.table("predictions")
+            .select("ai_prediction,actual_result")
+            .eq("user_id", user_id)
+            .eq("accuracy_checked", 1)
+            .execute()
+        ).data or []
+        for r in rows:
+            pred = r.get("ai_prediction", "")
+            actual = r.get("actual_result", "")
+            if ((pred == "涨" and actual == "涨") or
+                (pred == "跌" and actual == "跌") or
+                (pred == "平" and actual == "平")):
+                correct += 1
 
-    conn.close()
     return {
         "total_predictions": total,
         "accuracy_checked": checked,
@@ -173,32 +184,37 @@ def get_accuracy_stats(user_id: int = 1) -> dict:
 
 def get_today_predictions(user_id: int = 1) -> list[dict]:
     """获取今日预测"""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT * FROM predictions WHERE user_id = ? AND date(predicted_at) = date('now') ORDER BY predicted_at DESC",
-        (user_id,),
+    today = date.today().isoformat()
+    resp = (
+        get_supabase()
+        .table("predictions")
+        .select("*")
+        .eq("user_id", user_id)
+        .gte("predicted_at", today)
+        .order("predicted_at", desc=True)
+        .execute()
     )
-    rows = [dict(r) for r in cursor.fetchall()]
-    conn.close()
-    return rows
+    return resp.data or []
 
 
 def resolve_stock_daily_conflicts(user_id: int, stock_code: str) -> dict | None:
-    """检查同日同股上午/下午预测是否方向冲突，以置信度高者为准。
-    低置信度记录的 ai_analysis 末尾追加覆盖说明。
-    返回 {"winner_id": int, "winner_direction": str, "winner_confidence": float, "overridden_ids": [int]}
-    无冲突返回 None。"""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT * FROM predictions WHERE user_id = ? AND stock_code = ?"
-        " AND date(predicted_at) = date('now') AND ai_prediction IS NOT NULL"
-        " ORDER BY ai_confidence DESC",
-        (user_id, stock_code),
+    """检查同日同股上午/下午预测是否方向冲突，以置信度高者为准"""
+    today = date.today().isoformat()
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+
+    resp = (
+        get_supabase()
+        .table("predictions")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("stock_code", stock_code)
+        .gte("predicted_at", today)
+        .lt("predicted_at", tomorrow)
+        .not_.is_("ai_prediction", "null")
+        .order("ai_confidence", desc=True)
+        .execute()
     )
-    rows = [dict(r) for r in cursor.fetchall()]
-    conn.close()
+    rows = resp.data or []
 
     if len(rows) < 2:
         return None
@@ -214,13 +230,9 @@ def resolve_stock_daily_conflicts(user_id: int, stock_code: str) -> dict | None:
                 f"已被「{winner['ai_prediction']}」(置信度 {winner['ai_confidence']*100:.0f}%) 覆盖。"
             )
             new_analysis = (r["ai_analysis"] or "") + note
-            conn2 = get_connection()
-            conn2.execute(
-                "UPDATE predictions SET ai_analysis = ? WHERE id = ?",
-                (new_analysis, r["id"]),
-            )
-            conn2.commit()
-            conn2.close()
+            get_supabase().table("predictions").update({
+                "ai_analysis": new_analysis,
+            }).eq("id", r["id"]).execute()
             overridden_ids.append(r["id"])
 
     if overridden_ids:
@@ -234,39 +246,43 @@ def resolve_stock_daily_conflicts(user_id: int, stock_code: str) -> dict | None:
 
 
 def get_today_stock_prediction(user_id: int, stock_code: str) -> dict | None:
-    """获取今日某股票最近一条预测记录（含完整卦象和AI结果）"""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT * FROM predictions WHERE user_id = ? AND stock_code = ?"
-        " AND date(predicted_at) = date('now') ORDER BY predicted_at DESC LIMIT 1",
-        (user_id, stock_code),
+    """获取今日某股票最近一条预测记录"""
+    today = date.today().isoformat()
+    resp = (
+        get_supabase()
+        .table("predictions")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("stock_code", stock_code)
+        .gte("predicted_at", today)
+        .order("predicted_at", desc=True)
+        .limit(1)
+        .execute()
     )
-    row = cursor.fetchone()
-    conn.close()
-    return dict(row) if row else None
+    rows = resp.data or []
+    return rows[0] if rows else None
 
 
 def get_halfday_stock_count(user_id: int, stock_code: str) -> tuple[int, int]:
     """返回 (上午已占数, 下午已占数)，按今日0点/12点分界"""
-    conn = get_connection()
-    cursor = conn.cursor()
-    # 上午: 00:00-11:59, 下午: 12:00-23:59
-    cursor.execute(
-        "SELECT COUNT(*) as cnt FROM predictions WHERE user_id = ? AND stock_code = ?"
-        " AND date(predicted_at) = date('now')"
-        " AND CAST(strftime('%H', predicted_at) AS INTEGER) < 12",
-        (user_id, stock_code),
+    today = date.today().isoformat()
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    noon_today = f"{today}T12:00:00"
+
+    resp = (
+        get_supabase()
+        .table("predictions")
+        .select("predicted_at")
+        .eq("user_id", user_id)
+        .eq("stock_code", stock_code)
+        .gte("predicted_at", today)
+        .lt("predicted_at", tomorrow)
+        .execute()
     )
-    morning = cursor.fetchone()["cnt"]
-    cursor.execute(
-        "SELECT COUNT(*) as cnt FROM predictions WHERE user_id = ? AND stock_code = ?"
-        " AND date(predicted_at) = date('now')"
-        " AND CAST(strftime('%H', predicted_at) AS INTEGER) >= 12",
-        (user_id, stock_code),
-    )
-    afternoon = cursor.fetchone()["cnt"]
-    conn.close()
+    rows = resp.data or []
+
+    morning = sum(1 for r in rows if (r.get("predicted_at") or "") < noon_today)
+    afternoon = len(rows) - morning
     return morning, afternoon
 
 
@@ -274,85 +290,89 @@ def get_halfday_stock_count(user_id: int, stock_code: str) -> tuple[int, int]:
 
 def save_stock_picks(strategy: str, picks: list[dict]) -> None:
     """批量保存选股结果"""
-    conn = get_connection()
-    cursor = conn.cursor()
+    sb = get_supabase()
+    today = date.today().isoformat()
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+
     # 清除今日同策略旧结果
-    cursor.execute(
-        "DELETE FROM stock_picks WHERE strategy = ? AND date(picked_at) = date('now')",
-        (strategy,),
-    )
+    sb.table("stock_picks").delete()\
+        .eq("strategy", strategy)\
+        .gte("picked_at", today)\
+        .lt("picked_at", tomorrow)\
+        .execute()
+
     for p in picks:
-        cursor.execute(
-            "INSERT INTO stock_picks (strategy, stock_code, stock_name, score, analysis_json) VALUES (?, ?, ?, ?, ?)",
-            (strategy, p.get("code", ""), p.get("name", ""), p.get("score", 0),
-             json.dumps(p, ensure_ascii=False)),
-        )
-    conn.commit()
-    conn.close()
+        sb.table("stock_picks").insert({
+            "strategy": strategy,
+            "stock_code": p.get("code", ""),
+            "stock_name": p.get("name", ""),
+            "score": p.get("score", 0),
+            "analysis_json": json.dumps(p, ensure_ascii=False),
+        }).execute()
 
 
 def get_stock_picks(strategy: str | None = None, limit: int = 30) -> list[dict]:
     """获取选股结果"""
-    conn = get_connection()
-    cursor = conn.cursor()
+    query = (
+        get_supabase()
+        .table("stock_picks")
+        .select("*")
+        .order("score", desc=True)
+        .order("picked_at", desc=True)
+        .limit(limit)
+    )
     if strategy:
-        cursor.execute(
-            "SELECT * FROM stock_picks WHERE strategy = ? ORDER BY score DESC, picked_at DESC LIMIT ?",
-            (strategy, limit),
-        )
-    else:
-        cursor.execute(
-            "SELECT * FROM stock_picks ORDER BY score DESC, picked_at DESC LIMIT ?",
-            (limit,),
-        )
-    rows = [dict(r) for r in cursor.fetchall()]
-    conn.close()
-    return rows
+        query = query.eq("strategy", strategy)
+    resp = query.execute()
+    return resp.data or []
 
 
 def has_today_screening(strategy: str) -> bool:
     """检查今日是否已有某策略的筛选结果"""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT COUNT(*) as cnt FROM stock_picks WHERE strategy = ? AND date(picked_at) = date('now')",
-        (strategy,),
+    today = date.today().isoformat()
+    resp = (
+        get_supabase()
+        .table("stock_picks")
+        .select("*", count="exact")
+        .eq("strategy", strategy)
+        .gte("picked_at", today)
+        .execute()
     )
-    row = cursor.fetchone()
-    conn.close()
-    return (row["cnt"] if row else 0) > 0
+    return (resp.count or 0) > 0
 
 
 def get_latest_screening_time(strategy: str) -> str | None:
-    """获取某策略最近一次筛选时间，无结果返回 None"""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT picked_at FROM stock_picks WHERE strategy = ? ORDER BY picked_at DESC LIMIT 1",
-        (strategy,),
+    """获取某策略最近一次筛选时间"""
+    resp = (
+        get_supabase()
+        .table("stock_picks")
+        .select("picked_at")
+        .eq("strategy", strategy)
+        .order("picked_at", desc=True)
+        .limit(1)
+        .execute()
     )
-    row = cursor.fetchone()
-    conn.close()
-    return row["picked_at"] if row else None
+    rows = resp.data or []
+    return rows[0].get("picked_at") if rows else None
 
 
 # ── 质量日志 ──────────────────────────────────────────────────
 
 def get_pending_verifications(user_id: int = 1) -> list[dict]:
     """获取需要验证的预测 (target_date已过但未回测)"""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT * FROM predictions
-        WHERE user_id = ?
-        AND accuracy_checked = 0
-        AND target_date < date('now')
-        AND predicted_price > 0
-        ORDER BY target_date DESC
-    """, (user_id,))
-    rows = [dict(r) for r in cursor.fetchall()]
-    conn.close()
-    return rows
+    today = date.today().isoformat()
+    resp = (
+        get_supabase()
+        .table("predictions")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("accuracy_checked", 0)
+        .lt("target_date", today)
+        .gt("predicted_price", 0)
+        .order("target_date", desc=True)
+        .execute()
+    )
+    return resp.data or []
 
 
 def auto_backfill_results(user_id: int = 1) -> int:
@@ -370,7 +390,6 @@ def auto_backfill_results(user_id: int = 1) -> int:
             if df.empty or len(df) < 2:
                 continue
 
-            # 找到target_date之后第一个交易日的收盘价
             target = pd.Timestamp(p["target_date"])
             df.index = pd.to_datetime(df.index)
             after_target = df[df.index > target]
@@ -399,11 +418,11 @@ def log_quality(call_type: str, input_text: str, retry_count: int,
                 quality_passed: bool, fail_reason: str = "",
                 response_length: int = 0) -> None:
     """记录AI质量检测日志"""
-    conn = get_connection()
-    conn.execute(
-        "INSERT INTO quality_logs (call_type, input_summary, retry_count, quality_passed, fail_reason, response_length) VALUES (?, ?, ?, ?, ?, ?)",
-        (call_type, input_text[:200], retry_count, int(quality_passed),
-         fail_reason[:500], response_length),
-    )
-    conn.commit()
-    conn.close()
+    get_supabase().table("quality_logs").insert({
+        "call_type": call_type,
+        "input_summary": input_text[:200],
+        "retry_count": retry_count,
+        "quality_passed": int(quality_passed),
+        "fail_reason": fail_reason[:500],
+        "response_length": response_length,
+    }).execute()

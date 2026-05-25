@@ -9,6 +9,10 @@ DB_PATH = PROJECT_DIR / "stock_predictor.db"
 DATA_CACHE_DIR = PROJECT_DIR / "data_cache"
 DATA_CACHE_DIR.mkdir(exist_ok=True)
 
+# Supabase 云数据库
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://ajilnckhmjmrhcbncvgo.supabase.co")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "sb_publishable_Ggdbsp8p4d2AUdDfdOSxYQ_dNb4qi06")
+
 # AI 配置 (DeepSeek OpenAI-compatible API)
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
