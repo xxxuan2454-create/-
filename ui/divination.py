@@ -153,6 +153,33 @@ def show():
             st.session_state["divination_stock_code"] = selected_code
             if pred["analysis"]:
                 st.session_state["prediction"] = pred
+            elif has_api_key() and record.get("id"):
+                # AI分析缺失（历史原因未写入），自动补跑一次
+                try:
+                    inds = compute_all_indicators(selected_code, period="6mo")
+                    tech_summary = indicator_summary_text(inds)
+                except Exception:
+                    tech_summary = f"近30日价格: {current_price}, 今日涨跌幅: {change_pct}%"
+                with st.spinner("🤖 补充AI解卦中..."):
+                    try:
+                        prediction = predict_stock(
+                            stock_name=selected_name,
+                            stock_code=selected_code,
+                            current_price=current_price,
+                            change_pct=change_pct,
+                            technical_summary=tech_summary,
+                        )
+                        st.session_state["prediction"] = prediction
+                        update_ai_prediction(
+                            prediction_id=record["id"],
+                            ai_prediction=prediction["prediction"],
+                            ai_confidence=prediction["confidence"],
+                            ai_analysis=prediction["analysis"],
+                            ai_model="deepseek",
+                            retry_count=prediction.get("retry_count", 0),
+                        )
+                    except Exception as e:
+                        st.error(f"AI补充解卦失败: {e}")
     else:
         st.info(f"📅 {selected_name} 今日上午 {am_cnt}/1 卦 | 下午 {pm_cnt}/1 卦")
         cast_disabled = False

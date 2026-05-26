@@ -100,6 +100,13 @@ def migrate():
     print(f"  迁移 quality_logs: {len(logs)} 条")
 
     sqlite_conn.close()
+
+    # 重置所有表的自增序列，防止带 id 插入后新记录主键冲突
+    for table in ("users", "predictions", "stock_picks", "quality_logs"):
+        sb.rpc("setval_sequence", {"tbl": table}).execute() if False else None
+        # Supabase Python SDK 不支持直接执行 DDL，序列修复需在 SQL Editor 执行:
+        # SELECT setval(pg_get_serial_sequence('<table>', 'id'), COALESCE((SELECT MAX(id) FROM <table>), 1));
+    print("⚠️  请在 Supabase SQL Editor 执行 db/supabase_migration.sql 末尾的序列修复语句")
     print("\n✅ 迁移完成!")
 
 

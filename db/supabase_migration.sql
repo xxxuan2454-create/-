@@ -68,3 +68,10 @@ CREATE POLICY "allow_all_users" ON users FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_predictions" ON predictions FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_stock_picks" ON stock_picks FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_quality_logs" ON quality_logs FOR ALL USING (true) WITH CHECK (true);
+
+-- 序列修复: 从 SQLite 迁移带 id 插入后必须执行，否则新插入会与已有 ID 冲突
+-- 每次从外部导入数据后也需重新执行一次
+SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE((SELECT MAX(id) FROM users), 1));
+SELECT setval(pg_get_serial_sequence('predictions', 'id'), COALESCE((SELECT MAX(id) FROM predictions), 1));
+SELECT setval(pg_get_serial_sequence('stock_picks', 'id'), COALESCE((SELECT MAX(id) FROM stock_picks), 1));
+SELECT setval(pg_get_serial_sequence('quality_logs', 'id'), COALESCE((SELECT MAX(id) FROM quality_logs), 1));
