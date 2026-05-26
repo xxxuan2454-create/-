@@ -1,0 +1,15 @@
+name: Keep Alive
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Streamlit app
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://fyugkuuesc6hsn3al72jtf.streamlit.app)
+          echo "HTTP status: $STATUS"
