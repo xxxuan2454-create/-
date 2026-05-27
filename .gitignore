@@ -20,3 +20,4 @@ stock_predictor.db
 # OS
 .DS_Store
 Thumbs.db
+.env

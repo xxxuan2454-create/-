@@ -3,6 +3,13 @@
 import os
 from pathlib import Path
 
+# 加载项目根目录的 .env 文件（若存在）
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent / ".env")
+except ImportError:
+    pass
+
 # 项目路径
 PROJECT_DIR = Path(__file__).parent
 DB_PATH = PROJECT_DIR / "stock_predictor.db"

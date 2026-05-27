@@ -42,7 +42,7 @@ def fetch_stock_history_ak(code: str, period: str = "1y") -> pd.DataFrame:
     """通过 akshare (腾讯源) 获取单只股票历史日线，快于 yfinance ~30%"""
     import akshare as ak
 
-    cache = _read_cache(f"ak_hist_{code}")
+    cache = _read_cache(f"ak_hist_{code}_{period}")
     if cache:
         df = pd.DataFrame(cache["data"])
         if "date" in df.columns:
@@ -79,7 +79,7 @@ def fetch_stock_history_ak(code: str, period: str = "1y") -> pd.DataFrame:
             df["date"] = pd.to_datetime(raw["date"])
             df = df.set_index("date").sort_index()
 
-            _write_cache(f"ak_hist_{code}", {"data": df.reset_index().to_dict(orient="records")})
+            _write_cache(f"ak_hist_{code}_{period}", {"data": df.reset_index().to_dict(orient="records")})
             return df
         except Exception as e:
             if attempt == 0:
@@ -140,7 +140,7 @@ def _yf_code(ticker: str) -> str:
 def fetch_stock_history(code: str, period: str = "6mo", timeout: int = _YF_TIMEOUT,
                       source: str = "akshare") -> pd.DataFrame:
     """获取单只股票历史日线数据 (akshare国内源优先，yfinance备用)"""
-    cache = _read_cache(f"history_{code}")
+    cache = _read_cache(f"history_{code}_{period}")
     if cache:
         return pd.DataFrame(cache["data"])
 
@@ -148,7 +148,7 @@ def fetch_stock_history(code: str, period: str = "6mo", timeout: int = _YF_TIMEO
     if source == "akshare":
         df = fetch_stock_history_ak(code, period)
         if not df.empty:
-            _write_cache(f"history_{code}", {"data": df.reset_index().to_dict(orient="records")})
+            _write_cache(f"history_{code}_{period}", {"data": df.reset_index().to_dict(orient="records")})
             return df
 
     # ── yfinance 备用 ──

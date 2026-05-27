@@ -219,8 +219,9 @@ def show():
         st.session_state["divination_text"] = divination_text
         st.session_state["yingqi"] = yingqi
         st.session_state["divination_stock_code"] = selected_code
+        st.session_state["need_ai_prediction"] = True  # 标记需要AI预测
 
-        # 保存卦象
+        # 保存卦象到DB
         try:
             pred_id = save_divination_cast(
                 stock_code=selected_code,
@@ -240,55 +241,8 @@ def show():
         except Exception as e:
             st.warning(f"卦象保存失败: {e}")
 
-        # 自动调用AI预测
-        if has_api_key():
-            # 获取完整技术指标数据用于AI分析
-            try:
-                inds = compute_all_indicators(selected_code, period="6mo")
-                tech_summary = indicator_summary_text(inds)
-            except Exception:
-                tech_summary = f"近30日价格: {current_price}, 今日涨跌幅: {change_pct}%"
-
-            with st.spinner("🤖 AI正在解卦并预测涨跌..."):
-                try:
-                    prediction = predict_stock(
-                        stock_name=selected_name,
-                        stock_code=selected_code,
-                        current_price=current_price,
-                        change_pct=change_pct,
-                        technical_summary=tech_summary,
-                    )
-                    st.session_state["prediction"] = prediction
-
-                    # 更新DB记录
-                    pid = st.session_state.get("prediction_id")
-                    if pid:
-                        update_ai_prediction(
-                            prediction_id=pid,
-                            ai_prediction=prediction["prediction"],
-                            ai_confidence=prediction["confidence"],
-                            ai_analysis=prediction["analysis"],
-                            ai_model="deepseek",
-                            retry_count=prediction.get("retry_count", 0),
-                        )
-                        # 检查同日上/下午预测是否冲突
-                        conflict = resolve_stock_daily_conflicts(user_id, selected_code)
-                        if conflict:
-                            st.session_state["divination_conflict"] = conflict
-                            if conflict["winner_id"] == pid:
-                                st.success(
-                                    f"✅ 本次预测(置信度 {prediction['confidence']*100:.0f}%) "
-                                    f"同日冲突中胜出，已覆盖另一卦"
-                                )
-                            else:
-                                st.warning(
-                                    f"⚠️ 本次预测方向「{prediction['prediction']}」(置信度 {prediction['confidence']*100:.0f}%) "
-                                    f"已被同日另一卦「{conflict['winner_direction']}」(置信度 {conflict['winner_confidence']*100:.0f}%) 覆盖"
-                                )
-                except Exception as e:
-                    st.error(f"AI调用失败: {e}")
-        else:
-            st.warning("未配置 DEEPSEEK_API_KEY，跳过AI预测")
+        # 立即重新渲染页面，先显示卦象，再异步请求AI预测
+        st.rerun()
 
     # ── 显示卦象 ──
     if "divination_result" in st.session_state:
@@ -373,6 +327,40 @@ def show():
         # 卦辞
         st.markdown("#### 📖 本卦卦辞")
         st.markdown(zhu.get("guaCi", "")[:500])
+
+        # ── 触发AI预测（卦象显示后再调用，避免长时间等待导致页面空白）──
+        if st.session_state.pop("need_ai_prediction", False) and has_api_key():
+            try:
+                inds = compute_all_indicators(selected_code, period="6mo")
+                tech_summary = indicator_summary_text(inds)
+            except Exception:
+                tech_summary = f"近30日价格: {current_price}, 今日涨跌幅: {change_pct}%"
+
+            with st.spinner("🤖 AI正在解卦并预测涨跌（约20秒）..."):
+                try:
+                    prediction = predict_stock(
+                        stock_name=selected_name,
+                        stock_code=selected_code,
+                        current_price=current_price,
+                        change_pct=change_pct,
+                        technical_summary=tech_summary,
+                    )
+                    st.session_state["prediction"] = prediction
+                    pid = st.session_state.get("prediction_id")
+                    if pid:
+                        update_ai_prediction(
+                            prediction_id=pid,
+                            ai_prediction=prediction["prediction"],
+                            ai_confidence=prediction["confidence"],
+                            ai_analysis=prediction["analysis"],
+                            ai_model="deepseek",
+                            retry_count=prediction.get("retry_count", 0),
+                        )
+                        conflict = resolve_stock_daily_conflicts(user_id, selected_code)
+                        if conflict:
+                            st.session_state["divination_conflict"] = conflict
+                except Exception as e:
+                    st.error(f"AI调用失败: {e}")
 
         # ── 显示AI预测结果 ──
         if "prediction" in st.session_state:
