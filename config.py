@@ -99,6 +99,40 @@ STOCK_POOL = {
     "石头科技": "688169.SS", "九号公司": "689009.SS", "拓普集团": "601689.SS",
 }
 
+# 美股默认池 (六爻 / 多智能体 / 回测 fallback，全量搜索见 data/all_us_stocks.csv)
+US_STOCK_POOL = {
+    "Apple": "AAPL",
+    "Microsoft": "MSFT",
+    "NVIDIA": "NVDA",
+    "Amazon": "AMZN",
+    "Alphabet": "GOOGL",
+    "Meta": "META",
+    "Tesla": "TSLA",
+    "Berkshire Hathaway": "BRK-B",
+    "JPMorgan Chase": "JPM",
+    "Visa": "V",
+    "Johnson & Johnson": "JNJ",
+    "Walmart": "WMT",
+    "Mastercard": "MA",
+    "Exxon Mobil": "XOM",
+    "UnitedHealth": "UNH",
+    "Costco": "COST",
+    "Home Depot": "HD",
+    "Procter & Gamble": "PG",
+    "Netflix": "NFLX",
+    "AMD": "AMD",
+    "Salesforce": "CRM",
+    "Adobe": "ADBE",
+    "Intel": "INTC",
+    "Cisco": "CSCO",
+    "Disney": "DIS",
+    "PayPal": "PYPL",
+    "Uber": "UBER",
+    "Coinbase": "COIN",
+    "Palantir": "PLTR",
+    "SPDR S&P 500 ETF": "SPY",
+}
+
 # 大盘指数
 INDEX_CODES = {
     "上证指数": "000001.SS",

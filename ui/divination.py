@@ -14,7 +14,7 @@ from data.fetcher import fetch_stock_history, fetch_stock_info
 from data.technical import compute_all_indicators, indicator_summary_text
 from db.store import save_prediction, save_divination_cast, update_ai_prediction, get_halfday_stock_count, get_today_stock_prediction, resolve_stock_daily_conflicts
 from db.models import init_db
-from config import STOCK_POOL
+from ui.stock_picker import resolve_stock_selection, format_price
 
 
 def show():
@@ -26,61 +26,11 @@ def show():
     st.markdown("### 1️⃣ 选择股票")
 
     linked = st.session_state.get("active_stock")
-
-    col1, col2 = st.columns([3, 1])
-
-    with col1:
-        search_query = st.text_input(
-            "搜索股票名称或代码",
-            placeholder="输入关键词搜索...（如 茅台 / 宁德 / 600519）",
-            key="div_search_input",
-        )
-
-        if search_query:
-            from data.stock_list import search_all_stocks
-            results = search_all_stocks(search_query, limit=15)
-            if results:
-                stock_options = {r["name"]: r["code"] for r in results}
-                # 联动股票如果在结果中，默认选中它
-                default_idx = 0
-                if linked:
-                    for i, r in enumerate(results):
-                        if r["code"] == linked["code"]:
-                            default_idx = i
-                            break
-                selected_name = st.selectbox(
-                    "选择股票",
-                    options=list(stock_options.keys()),
-                    index=default_idx,
-                    key="div_stock_select",
-                )
-                selected_code = stock_options[selected_name]
-            else:
-                st.warning("无匹配股票")
-                selected_name = list(STOCK_POOL.keys())[0]
-                selected_code = STOCK_POOL[selected_name]
-        else:
-            if linked:
-                selected_name = linked["name"]
-                selected_code = linked["code"]
-                st.info(f"📌 从其他页面联动: **{linked['name']}** ({linked['code']})，上方搜索框可随时更换股票")
-            else:
-                selected_name = list(STOCK_POOL.keys())[0]
-                selected_code = STOCK_POOL[selected_name]
-                st.info("输入股票名称或代码搜索，选中后将自动联动到「🤖 多智能体分析」页面")
-
-    with col2:
-        use_random = st.checkbox("随机选股", value=False, key="random_stock")
-
-    if use_random:
-        import random
-        stock_names = list(STOCK_POOL.keys())
-        selected_name = random.choice(stock_names)
-        selected_code = STOCK_POOL[selected_name]
-        st.info(f"随机选中: **{selected_name}**")
-
-    # ── 联动到智能分析 ──
-    st.session_state["active_stock"] = {"name": selected_name, "code": selected_code}
+    selected_name, selected_code, market = resolve_stock_selection(
+        "div",
+        show_random=True,
+        linked=linked,
+    )
 
     st.markdown(f"## 📌 当前占卜股票: **{selected_name}** ({selected_code})")
     st.caption("🔗 已联动到「🤖 多智能体分析」，切换侧边栏即可直接分析此股")
@@ -102,7 +52,7 @@ def show():
 
     c1, c2, c3 = st.columns(3)
     with c1:
-        st.metric("当前价格", f"¥{current_price:.2f}")
+        st.metric("当前价格", format_price(current_price, market, selected_code))
     with c2:
         st.metric("代码", selected_code)
     with c3:

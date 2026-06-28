@@ -30,14 +30,16 @@ from ui.backtest import show as backtest
 
 
 def _init_search_db():
-    """首次启动时将静态CSV导入SQLite，供搜索功能使用"""
+    """首次启动时将静态 CSV 导入 SQLite，供搜索功能使用"""
     from data.stock_list import sync_full_stock_list, get_stock_count
+    from data.markets import MARKET_CN, MARKET_US
     try:
-        count = get_stock_count()
+        cn_count = get_stock_count(MARKET_CN)
+        us_count = get_stock_count(MARKET_US)
     except Exception:
-        count = 0
+        cn_count = us_count = 0
 
-    if count < 1000:
+    if cn_count < 1000 or us_count < 50:
         try:
             sync_full_stock_list()
         except Exception as e:
@@ -90,10 +92,10 @@ def main():
             st.caption("查看大盘概览、今日推荐、预测统计")
         elif page == "🔍 选股筛选":
             st.caption("Momentum-X动量趋势 + Sequoia-X技术面 + qstock多因子评分")
-        elif page == "🤖 多智能体分析":
-            st.caption("AI多角色分析: 技术/基本面/情绪/辩论")
         elif page == "🔮 六爻占卜":
-            st.caption("六爻起卦 → AI解卦 → 涨跌预测")
+            st.caption("六爻起卦 → AI解卦 → 涨跌预测 (支持 A股 / 美股)")
+        elif page == "🤖 多智能体分析":
+            st.caption("AI多角色分析: 技术/基本面/情绪/辩论 (支持 A股 / 美股)")
         elif page == "⚡ 策略回测":
             st.caption("均线/RSI/布林带 交易策略回测")
         elif page == "📋 历史记录":
