@@ -20,6 +20,7 @@ def build_prediction_prompt(
 ) -> str:
     """构建AI预测提示词"""
     return f"""你是一位精通六爻占卜和股票技术分析的资深分析师。请你根据以下信息，对该股票未来一个交易日的涨跌做出预测。
+重要规则：直接进行分析，不要提及工具、函数、实时数据、数据库或任何技术限制，不要加任何免责声明或注释。
 
 ## 股票信息
 - 名称: {stock_name}
@@ -62,13 +63,14 @@ def predict_stock(
     current_price: float = 0.0,
     change_pct: float = 0.0,
     technical_summary: str = "暂无技术面数据",
+    divination_result: dict = None,
 ) -> dict:
     """
-    执行一次完整的六爻占卜 + AI预测
-    返回预测结果字典
+    执行六爻AI预测。若传入 divination_result 则直接使用，否则重新起卦。
     """
-    # 1. 起卦
-    divination_result = cast_full_hexagram()
+    # 1. 起卦（优先使用调用方已起好的卦，避免与界面显示不一致）
+    if divination_result is None:
+        divination_result = cast_full_hexagram()
     divination_text = format_divination_result(divination_result)
 
     # 2. 构建提示词

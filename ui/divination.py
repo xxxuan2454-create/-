@@ -168,6 +168,7 @@ def show():
                             current_price=current_price,
                             change_pct=change_pct,
                             technical_summary=tech_summary,
+                            divination_result=st.session_state.get("divination_result"),
                         )
                         st.session_state["prediction"] = prediction
                         update_ai_prediction(
@@ -344,6 +345,7 @@ def show():
                         current_price=current_price,
                         change_pct=change_pct,
                         technical_summary=tech_summary,
+                        divination_result=st.session_state.get("divination_result"),
                     )
                     st.session_state["prediction"] = prediction
                     pid = st.session_state.get("prediction_id")

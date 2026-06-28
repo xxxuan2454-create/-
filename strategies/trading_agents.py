@@ -145,5 +145,5 @@ def analyze_single_stock(stock_name: str, stock_code: str) -> dict:
         "analysis": response,
         "action": action,
         "confidence": confidence,
-        "retry_count": response.count("_retry_count"),
+        "retry_count": 0,
     }

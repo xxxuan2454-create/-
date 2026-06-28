@@ -1,9 +1,20 @@
 """AI质量检测Hook - 检测输出质量，不达标自动重试"""
 
-from datetime import datetime
+import re
 
 from config import QUALITY_MIN_LENGTH, QUALITY_MAX_RETRIES
 from db.store import log_quality
+
+
+def clean_response(response: str) -> str:
+    """清理AI输出中的噪音标记和免责声明"""
+    # 去掉 HTML 注释（如 <!-- _retry_count: N -->）
+    response = re.sub(r"<!--.*?-->", "", response, flags=re.DOTALL)
+    # 去掉括号内的技术备注（如 (注：...）、（注：...））
+    response = re.sub(r"[（(]注[：:][^）)]{0,300}[）)]", "", response)
+    # 去掉末尾多余空行
+    response = response.strip()
+    return response
 
 
 def check_divination_quality(response: str) -> tuple[bool, str]:
@@ -23,10 +34,12 @@ def check_divination_quality(response: str) -> tuple[bool, str]:
     if not has_conclusion:
         issues.append("缺少涨跌预测结论")
 
-    # 不能太敷衍 (避免"作为AI无法预测"等推脱)
+    # 不能出现推脱/免责用语
     refusal_patterns = [
         "作为AI", "无法预测", "我无法", "这超出了", "我不能",
         "as an AI", "I cannot predict", "I cannot provide",
+        "没有参考函数", "没有实时", "无法获取实时", "没有相关工具",
+        "没有工具", "缺乏参考", "无法查询实时", "不具备实时",
     ]
     for pattern in refusal_patterns:
         if pattern.lower() in response.lower():
@@ -75,12 +88,12 @@ def quality_check_and_retry(call_fn, input_text: str, call_type: str) -> tuple[s
             if not isinstance(response, str):
                 response = str(response)
 
+            response = clean_response(response)
+
             if check_fn is None:
-                # 无检测函数，直接通过
                 return response, attempt
 
             passed, reason = check_fn(response)
-            response_len = len(response)
 
             log_quality(
                 call_type=call_type,
@@ -88,13 +101,10 @@ def quality_check_and_retry(call_fn, input_text: str, call_type: str) -> tuple[s
                 retry_count=attempt,
                 quality_passed=passed,
                 fail_reason=reason if not passed else "",
-                response_length=response_len,
+                response_length=len(response),
             )
 
             if passed:
-                # 标记重试次数
-                if attempt > 0:
-                    response += f"\n\n(经过{attempt}次重试后达标)"
                 return response, attempt
 
             last_error = reason
@@ -111,7 +121,7 @@ def quality_check_and_retry(call_fn, input_text: str, call_type: str) -> tuple[s
                 response_length=0,
             )
 
-    # 所有重试都失败
+    # 所有重试都失败，返回最后一次响应（若有）或空提示
     log_quality(
         call_type=call_type,
         input_text=input_text,
@@ -121,11 +131,7 @@ def quality_check_and_retry(call_fn, input_text: str, call_type: str) -> tuple[s
         response_length=len(last_response),
     )
 
-    fallback = (
-        last_response
-        + f"\n\n【警告】AI经{QUALITY_MAX_RETRIES}次重试后仍未达标。"
-        + f"原因: {last_error}。请手动判断。"
-    )
-    return fallback, QUALITY_MAX_RETRIES
+    if last_response:
+        return last_response, QUALITY_MAX_RETRIES
 
-
+    return "AI解卦服务暂时不可用，请稍后再试。", QUALITY_MAX_RETRIES
