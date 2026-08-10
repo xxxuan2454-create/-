@@ -8,6 +8,7 @@ from datetime import datetime
 import requests
 
 from config import XTICK_API_TOKEN, XTICK_BASE_URL
+from data.markets import is_cn_market, is_us_market
 
 
 # ── 腾讯行情 API ──────────────────────────────────────────────
@@ -181,21 +182,64 @@ def _parse_xtick_response(data: dict, code: str) -> dict:
     }
 
 
+# ── yfinance 实时 (美股) ─────────────────────────────────────
+
+def fetch_realtime_yfinance(codes: list[str]) -> dict[str, dict]:
+    """通过 yfinance 获取美股最近行情 (基于最近交易日收盘价)"""
+    import yfinance as yf
+
+    results: dict[str, dict] = {}
+    for code in codes:
+        if not is_us_market(code):
+            continue
+        try:
+            ticker = yf.Ticker(code)
+            df = ticker.history(period="5d")
+            if df.empty:
+                continue
+            latest = df.iloc[-1]
+            prev = df.iloc[-2] if len(df) >= 2 else latest
+            last_close = float(prev["Close"])
+            current = float(latest["Close"])
+            change_pct = round((current - last_close) / last_close * 100, 2) if last_close > 0 else 0.0
+            vol = latest["Volume"]
+            results[code] = {
+                "name": code,
+                "code": code,
+                "current_price": current,
+                "last_close": last_close,
+                "open": float(latest["Open"]),
+                "high": float(latest["High"]),
+                "low": float(latest["Low"]),
+                "volume": _safe_int(vol),
+                "change_pct": change_pct,
+                "source": "yfinance",
+            }
+        except Exception as e:
+            print(f"yfinance 获取 {code} 失败: {e}")
+    return results
+
+
 # ── 统一接口 ──────────────────────────────────────────────────
 
 def get_realtime_quotes(codes: list[str]) -> dict[str, dict]:
-    """获取实时行情: 优先腾讯 → 新浪 → xtick"""
-    results = fetch_realtime_tencent(codes)
+    """获取实时行情: A股 腾讯→新浪→xtick; 美股 yfinance"""
+    cn_codes = [c for c in codes if is_cn_market(c)]
+    us_codes = [c for c in codes if is_us_market(c)]
 
-    # 补充未获取到的股票
-    missing = [c for c in codes if c not in results]
-    if missing:
-        sina_results = fetch_realtime_sina(missing)
-        results.update(sina_results)
-        missing2 = [c for c in missing if c not in results]
-        if missing2 and XTICK_API_TOKEN:
-            xtick_results = fetch_realtime_xtick(missing2)
-            results.update(xtick_results)
+    results = fetch_realtime_tencent(cn_codes) if cn_codes else {}
+
+    # A股: 腾讯未命中 → 新浪 → xtick
+    missing_cn = [c for c in cn_codes if c not in results]
+    if missing_cn:
+        results.update(fetch_realtime_sina(missing_cn))
+        missing_cn = [c for c in missing_cn if c not in results]
+        if missing_cn and XTICK_API_TOKEN:
+            results.update(fetch_realtime_xtick(missing_cn))
+
+    # 美股: yfinance
+    if us_codes:
+        results.update(fetch_realtime_yfinance(us_codes))
 
     return results
 

@@ -6,7 +6,8 @@ import pandas as pd
 
 from strategies.trading_agents import _get_technical_data, _get_fundamental_data
 from data.fetcher import fetch_stock_history
-from config import STOCK_POOL
+from ui.stock_picker import resolve_stock_selection, format_price
+from data.markets import currency_symbol
 import math
 
 
@@ -34,50 +35,17 @@ def show():
     st.markdown("### 选择分析标的")
 
     linked = st.session_state.get("active_stock")
-
-    search_query = st.text_input(
-        "搜索股票名称或代码",
-        placeholder="输入关键词搜索...",
-        key="ma_search_input",
+    selected_name, selected_code, market = resolve_stock_selection(
+        "ma",
+        linked=linked,
     )
-
-    if search_query:
-        from data.stock_list import search_all_stocks
-        results = search_all_stocks(search_query, limit=15)
-        if results:
-            stock_options = {r["name"]: r["code"] for r in results}
-            # 联动股票如果在结果中，默认选中它
-            default_idx = 0
-            if linked:
-                for i, r in enumerate(results):
-                    if r["code"] == linked["code"]:
-                        default_idx = i
-                        break
-            selected_name = st.selectbox(
-                "选择股票", options=list(stock_options.keys()),
-                index=default_idx, key="ma_stock_select",
-            )
-            selected_code = stock_options[selected_name]
-        else:
-            st.warning("无匹配股票")
-            selected_name = list(STOCK_POOL.keys())[0]
-            selected_code = STOCK_POOL[selected_name]
-    else:
-        if linked:
-            selected_name = linked["name"]
-            selected_code = linked["code"]
-            st.info(f"📌 从其他页面联动: **{linked['name']}** ({linked['code']})，上方搜索框可随时更换股票")
-        else:
-            selected_name = list(STOCK_POOL.keys())[0]
-            selected_code = STOCK_POOL[selected_name]
-            st.info("输入股票名称或代码搜索，选中后将自动联动到「🔮 六爻占卜」页面")
-
-    # ── 联动到六爻占卜 ──
-    st.session_state["active_stock"] = {"name": selected_name, "code": selected_code}
 
     # ── 当前分析股票 ──
     st.markdown(f"## 📌 当前分析股票: **{selected_name}** ({selected_code})")
     st.caption("🔗 已联动到「🔮 六爻占卜」，切换侧边栏即可直接起卦")
+
+    sym = currency_symbol(market)
+    price_tpl = f"{sym}" + "{:.2f}"
 
     # ── 技术面预览 ──
     st.markdown("---")
@@ -90,7 +58,7 @@ def show():
         st.markdown("#### 动量指标")
         cols = st.columns(4)
         with cols[0]:
-            st.metric("价格", _sfmt(technical.get('price'), "¥{:.2f}"))
+            st.metric("价格", _sfmt(technical.get('price'), price_tpl))
         with cols[1]:
             st.metric("RSI(14)", _sfmt(technical.get("rsi_14"), "{:.1f}"))
         with cols[2]:
@@ -101,18 +69,18 @@ def show():
         st.markdown("#### 趋势与波动")
         cols2 = st.columns(4)
         with cols2[0]:
-            st.metric("MA30(日)", _sfmt(technical.get("sma_20"), "¥{:.2f}"))
+            st.metric("MA30(日)", _sfmt(technical.get("sma_20"), price_tpl))
         with cols2[1]:
-            st.metric("MA50(日)", _sfmt(technical.get("sma_50"), "¥{:.2f}"))
+            st.metric("MA50(日)", _sfmt(technical.get("sma_50"), price_tpl))
         with cols2[2]:
-            st.metric("布林上轨", _sfmt(technical.get("bb_upper"), "¥{:.2f}"))
+            st.metric("布林上轨", _sfmt(technical.get("bb_upper"), price_tpl))
         with cols2[3]:
-            st.metric("布林下轨", _sfmt(technical.get("bb_lower"), "¥{:.2f}"))
+            st.metric("布林下轨", _sfmt(technical.get("bb_lower"), price_tpl))
 
         st.markdown("#### 周线与量价")
         cols3 = st.columns(4)
         with cols3[0]:
-            st.metric("MA10(周)", _sfmt(technical.get("ma10w"), "¥{:.2f}"))
+            st.metric("MA10(周)", _sfmt(technical.get("ma10w"), price_tpl))
         with cols3[1]:
             st.metric("MFI(14)", _sfmt(technical.get("mfi_14"), "{:.1f}"))
         with cols3[2]:

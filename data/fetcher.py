@@ -10,6 +10,7 @@ import pandas as pd
 import yfinance as yf
 
 from config import STOCK_POOL, INDEX_CODES, DATA_CACHE_DIR
+from data.markets import is_cn_market
 
 # 国内访问 yfinance 可能很慢，统一超时 6 秒
 _YF_TIMEOUT = 6
@@ -40,6 +41,9 @@ def _parse_date(date_str: str, default_year: str = "2024") -> str:
 
 def fetch_stock_history_ak(code: str, period: str = "1y") -> pd.DataFrame:
     """通过 akshare (腾讯源) 获取单只股票历史日线，快于 yfinance ~30%"""
+    if not is_cn_market(code):
+        return pd.DataFrame()
+
     import akshare as ak
 
     cache = _read_cache(f"ak_hist_{code}_{period}")
@@ -134,24 +138,42 @@ def _write_cache(code: str, data: dict) -> None:
 
 def _yf_code(ticker: str) -> str:
     """将本地代码格式转为 yfinance 格式"""
-    return ticker  # yfinance 直接支持 600519.SS / 000858.SZ
+    return ticker  # yfinance: 600519.SS / 000858.SZ / AAPL
+
+
+def _dataframe_from_cache(cache: dict) -> pd.DataFrame:
+    """Restore OHLCV DataFrame from cached JSON records."""
+    df = pd.DataFrame(cache["data"])
+    if df.empty:
+        return df
+    if "date" in df.columns:
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.set_index("date")
+    elif "Date" in df.columns:
+        df["Date"] = pd.to_datetime(df["Date"])
+        df = df.set_index("Date")
+    df.columns = [c.lower() for c in df.columns]
+    return df.sort_index()
 
 
 def fetch_stock_history(code: str, period: str = "6mo", timeout: int = _YF_TIMEOUT,
                       source: str = "akshare") -> pd.DataFrame:
-    """获取单只股票历史日线数据 (akshare国内源优先，yfinance备用)"""
-    cache = _read_cache(f"history_{code}_{period}")
+    """获取单只股票历史日线 (A股: akshare优先; 美股: yfinance)"""
+    cache_key = f"history_{code}_{period}"
+    cache = _read_cache(cache_key)
     if cache:
-        return pd.DataFrame(cache["data"])
+        return _dataframe_from_cache(cache)
 
-    # ── akshare (国内源，更快更稳) ──
-    if source == "akshare":
+    use_akshare = is_cn_market(code) and source == "akshare"
+
+    # ── akshare (A股国内源) ──
+    if use_akshare:
         df = fetch_stock_history_ak(code, period)
         if not df.empty:
-            _write_cache(f"history_{code}_{period}", {"data": df.reset_index().to_dict(orient="records")})
+            _write_cache(cache_key, {"data": df.reset_index().to_dict(orient="records")})
             return df
 
-    # ── yfinance 备用 ──
+    # ── yfinance (美股主路径 / A股备用) ──
     def _fetch():
         ticker = yf.Ticker(_yf_code(code))
         df = ticker.history(period=period)
@@ -169,7 +191,7 @@ def fetch_stock_history(code: str, period: str = "6mo", timeout: int = _YF_TIMEO
     if result is None or (isinstance(result, pd.DataFrame) and result.empty):
         return pd.DataFrame()
 
-    _write_cache(f"history_{code}", {"data": result.reset_index().to_dict(orient="records")})
+    _write_cache(cache_key, {"data": result.reset_index().to_dict(orient="records")})
     return result
 
 

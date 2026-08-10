@@ -1,0 +1,114 @@
+code,name,exchange
+AAPL,Apple Inc,NASDAQ
+MSFT,Microsoft Corporation,NASDAQ
+GOOGL,Alphabet Inc Class A,NASDAQ
+GOOG,Alphabet Inc Class C,NASDAQ
+AMZN,Amazon.com Inc,NASDAQ
+NVDA,NVIDIA Corporation,NASDAQ
+META,Meta Platforms Inc,NASDAQ
+TSLA,Tesla Inc,NASDAQ
+BRK-B,Berkshire Hathaway Inc Class B,NYSE
+UNH,UnitedHealth Group Inc,NYSE
+JNJ,Johnson & Johnson,NYSE
+JPM,JPMorgan Chase & Co,NYSE
+V,Visa Inc Class A,NYSE
+PG,Procter & Gamble Co,NYSE
+XOM,Exxon Mobil Corporation,NYSE
+MA,Mastercard Inc Class A,NYSE
+HD,Home Depot Inc,NYSE
+CVX,Chevron Corporation,NYSE
+MRK,Merck & Co Inc,NYSE
+ABBV,AbbVie Inc,NYSE
+LLY,Eli Lilly and Co,NYSE
+AVGO,Broadcom Inc,NASDAQ
+PEP,PepsiCo Inc,NASDAQ
+KO,Coca-Cola Co,NYSE
+COST,Costco Wholesale Corporation,NASDAQ
+WMT,Walmart Inc,NYSE
+MCD,McDonald's Corporation,NYSE
+CSCO,Cisco Systems Inc,NASDAQ
+ACN,Accenture plc Class A,NYSE
+TMO,Thermo Fisher Scientific Inc,NYSE
+ABT,Abbott Laboratories,NYSE
+DHR,Danaher Corporation,NYSE
+CRM,Salesforce Inc,NYSE
+NKE,Nike Inc Class B,NYSE
+TXN,Texas Instruments Incorporated,NASDAQ
+NEE,NextEra Energy Inc,NYSE
+PM,Philip Morris International Inc,NYSE
+ORCL,Oracle Corporation,NYSE
+INTC,Intel Corporation,NASDAQ
+AMD,Advanced Micro Devices Inc,NASDAQ
+QCOM,QUALCOMM Incorporated,NASDAQ
+IBM,International Business Machines Corporation,NYSE
+GS,Goldman Sachs Group Inc,NYSE
+MS,Morgan Stanley,NYSE
+BAC,Bank of America Corp,NYSE
+WFC,Wells Fargo & Company,NYSE
+C,Citigroup Inc,NYSE
+AXP,American Express Company,NYSE
+BLK,BlackRock Inc,NYSE
+SCHW,Charles Schwab Corp,NYSE
+SPGI,S&P Global Inc,NYSE
+CAT,Caterpillar Inc,NYSE
+DE,Deere & Company,NYSE
+BA,Boeing Co,NYSE
+RTX,RTX Corporation,NYSE
+LMT,Lockheed Martin Corporation,NYSE
+GE,GE Aerospace,NYSE
+HON,Honeywell International Inc,NASDAQ
+UPS,United Parcel Service Inc Class B,NYSE
+FDX,FedEx Corporation,NYSE
+LOW,Lowe's Companies Inc,NYSE
+SBUX,Starbucks Corporation,NASDAQ
+DIS,Walt Disney Co,NYSE
+NFLX,Netflix Inc,NASDAQ
+CMCSA,Comcast Corporation Class A,NASDAQ
+T,AT&T Inc,NYSE
+VZ,Verizon Communications Inc,NYSE
+TMUS,T-Mobile US Inc,NASDAQ
+ADBE,Adobe Inc,NASDAQ
+INTU,Intuit Inc,NASDAQ
+PYPL,PayPal Holdings Inc,NASDAQ
+SQ,Block Inc,NYSE
+SHOP,Shopify Inc Class A,NYSE
+SNOW,Snowflake Inc Class A,NYSE
+PLTR,Palantir Technologies Inc Class A,NASDAQ
+UBER,Uber Technologies Inc,NYSE
+ABNB,Airbnb Inc Class A,NASDAQ
+COIN,Coinbase Global Inc Class A,NASDAQ
+ARM,Arm Holdings plc ADR,NASDAQ
+SMCI,Super Micro Computer Inc,NASDAQ
+MU,Micron Technology Inc,NASDAQ
+AMAT,Applied Materials Inc,NASDAQ
+LRCX,Lam Research Corporation,NASDAQ
+KLAC,KLA Corporation,NASDAQ
+ASML,ASML Holding NV ADR,NASDAQ
+TSM,Taiwan Semiconductor Manufacturing ADR,NYSE
+PANW,Palo Alto Networks Inc Class A,NASDAQ
+CRWD,CrowdStrike Holdings Inc Class A,NASDAQ
+NOW,ServiceNow Inc,NYSE
+ADSK,Autodesk Inc,NASDAQ
+SNPS,Synopsys Inc,NASDAQ
+CDNS,Cadence Design Systems Inc,NASDAQ
+MRVL,Marvell Technology Inc,NASDAQ
+GILD,Gilead Sciences Inc,NASDAQ
+AMGN,Amgen Inc,NASDAQ
+REGN,Regeneron Pharmaceuticals Inc,NASDAQ
+VRTX,Vertex Pharmaceuticals Inc,NASDAQ
+BIIB,Biogen Inc,NASDAQ
+ISRG,Intuitive Surgical Inc,NASDAQ
+MDT,Medtronic plc,NYSE
+SYK,Stryker Corporation,NYSE
+BSX,Boston Scientific Corporation,NYSE
+PFE,Pfizer Inc,NYSE
+BMY,Bristol-Myers Squibb Co,NYSE
+UNP,Union Pacific Corporation,NYSE
+CSX,CSX Corporation,NASDAQ
+NSC,Norfolk Southern Corporation,NYSE
+SPY,SPDR S&P 500 ETF Trust,NYSEARCA
+QQQ,Invesco QQQ Trust Series 1,NASDAQ
+DIA,SPDR Dow Jones Industrial Average ETF Trust,NYSEARCA
+IWM,iShares Russell 2000 ETF,NYSEARCA
+VTI,Vanguard Total Stock Market ETF,NYSEARCA
+VOO,Vanguard S&P 500 ETF,NYSEARCA

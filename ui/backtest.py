@@ -7,7 +7,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from data.fetcher import fetch_stock_history
-from config import STOCK_POOL
+from ui.stock_picker import resolve_stock_selection
+from data.markets import detect_market
 
 
 STRATEGY_HELP = {
@@ -26,31 +27,14 @@ def show():
     if active:
         selected_name = active.get("name", "")
         selected_code = active.get("code", "")
-        st.info(f"📌 已联动选中: **{selected_name}** ({selected_code})（来自搜索/多智能体页面）")
+        market = active.get("market") or detect_market(selected_code)
+        st.info(f"📌 已联动选中: **{selected_name}** ({selected_code})（来自六爻/多智能体页面）")
         if st.button("✕ 取消联动", key="clear_bt_active"):
             st.session_state.pop("active_stock", None)
             st.rerun()
     else:
-        search_query = st.text_input(
-            "搜索股票",
-            placeholder="输入股票名称或代码，如: 茅台 / 600519",
-            key="bt_search_input",
-        )
-        if search_query:
-            from data.stock_list import search_all_stocks
-            results = search_all_stocks(search_query, limit=15)
-            if results:
-                stock_options = {r["name"]: r["code"] for r in results}
-                selected_name = st.selectbox("选择股票", options=list(stock_options.keys()), key="bt_stock_select")
-                selected_code = stock_options[selected_name]
-                st.session_state["active_stock"] = {"name": selected_name, "code": selected_code}
-                st.markdown(f"### 📌 {selected_name} ({selected_code})")
-                st.caption("🔗 已联动到「🔮 六爻占卜」和「🤖 多智能体分析」，切换侧边栏即可直接使用")
-            else:
-                st.warning("无匹配股票")
-                return
-        else:
-            st.info("输入股票名称或代码搜索，选中后将自动联动到「🔮 六爻占卜」和「🤖 多智能体分析」页面")
+        selected_name, selected_code, market = resolve_stock_selection("bt", linked=None)
+        if not selected_code:
             return
 
     # ── 策略选择 ──
