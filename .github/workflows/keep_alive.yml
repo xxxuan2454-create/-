@@ -11,5 +11,10 @@ jobs:
     steps:
       - name: Ping Streamlit app
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://fyugkuuesc6hsn3al72jtf.streamlit.app)
-          echo "HTTP status: $STATUS"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -L --max-time 120 https://fyugkuuesc6hsn3al72jtf.streamlit.app)
+          echo "HTTP status: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "App returned $HTTP_CODE, may be sleeping or down"
+            exit 1
+          fi
+          echo "App is alive"

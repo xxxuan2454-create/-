@@ -21,3 +21,4 @@ stock_predictor.db
 .DS_Store
 Thumbs.db
 .env
+logs/
